@@ -7,7 +7,7 @@ use voice_agent::{AppState, thinker};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+    voice_agent::config::load_dev_env();
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into())).with_writer(std::io::stderr).init();
     let req = std::env::args().nth(1).expect("usage: think \"<request>\"");
     unsafe { std::env::set_var("MEMORY", "0") };

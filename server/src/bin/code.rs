@@ -8,7 +8,7 @@ use voice_agent::{AppState, codegen, env_num, env_or, files::Files, llm::Provide
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+    voice_agent::config::load_dev_env();
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into())).with_writer(std::io::stderr).init();
     let a: Vec<String> = std::env::args().collect();
     if a.len() < 3 {
@@ -16,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     }
     unsafe { std::env::set_var("MEMORY", "0") };
     let app = AppState::from_env().await?;
-    let data: PathBuf = env_or("DATA_DIR", concat!(env!("CARGO_MANIFEST_DIR"), "/../data")).into();
+    let data: PathBuf = voice_agent::thinker::data_dir();
     let files = Files::open(&data)?;
     let sb = Sandbox::new(&data);
     let inputs: Vec<PathBuf> = a[2..].iter().map(PathBuf::from).collect();

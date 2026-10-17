@@ -285,7 +285,7 @@ mod live {
     #[tokio::test]
     #[ignore]
     async fn reddit_extract_live() {
-        let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+        crate::config::load_dev_env();
         let app = crate::AppState::from_env().await.unwrap();
         let text = std::fs::read_to_string(std::env::var("REDDIT_THREADS").unwrap()).unwrap();
         let t0 = std::time::Instant::now();

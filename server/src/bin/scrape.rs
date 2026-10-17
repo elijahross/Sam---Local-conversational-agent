@@ -17,7 +17,7 @@ use voice_agent::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+    voice_agent::config::load_dev_env();
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into())).with_writer(std::io::stderr).init();
     let mut a: Vec<String> = std::env::args().collect();
     let details = a.get(1).is_some_and(|x| x == "--details");
@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
     let schema: Vec<String> = a[3].split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
     unsafe { std::env::set_var("MEMORY", "0") };
     let app = AppState::from_env().await?;
-    let data: PathBuf = env_or("DATA_DIR", concat!(env!("CARGO_MANIFEST_DIR"), "/../data")).into();
+    let data: PathBuf = voice_agent::thinker::data_dir();
     let screen = env_num("SCREEN", 1u16);
     let chrome = Chrome::launch(&data, screen, Visibility::Offscreen).await?;
     let tab = chrome.new_tab().await?;

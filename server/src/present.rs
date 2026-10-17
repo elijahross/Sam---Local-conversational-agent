@@ -212,7 +212,7 @@ mod live {
     #[tokio::test]
     #[ignore]
     async fn present_live() {
-        let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+        crate::config::load_dev_env();
         let app = crate::AppState::from_env().await.unwrap();
         let dir = std::env::var("PRESENT_DIR").unwrap();
         let step = crate::thinker::StepResult { status: String::new(), tool: "research".into(), ok: true, summary: "research done".into(), dir: Some(dir), file: None, tokens: 0 };

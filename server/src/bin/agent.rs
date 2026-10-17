@@ -23,10 +23,10 @@ use voice_agent::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+    voice_agent::config::load_dev_env();
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into())).with_writer(std::io::stderr).init();
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let data: PathBuf = env_or("DATA_DIR", concat!(env!("CARGO_MANIFEST_DIR"), "/../data")).into();
+    let data: PathBuf = voice_agent::thinker::data_dir();
     let screen = env_num("SCREEN", 1u16);
     match args.first().map(String::as_str) {
         Some("--login-add") => {

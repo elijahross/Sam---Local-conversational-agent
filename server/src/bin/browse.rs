@@ -16,13 +16,13 @@ use voice_agent::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+    voice_agent::config::load_dev_env();
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into())).with_writer(std::io::stderr).init();
     let request = std::env::args().nth(1).expect("usage: browse \"<research request>\"");
     // Background agent context: no voice-session memory needed.
     unsafe { std::env::set_var("MEMORY", "0") };
     let app = AppState::from_env().await?;
-    let data: PathBuf = env_or("DATA_DIR", concat!(env!("CARGO_MANIFEST_DIR"), "/../data")).into();
+    let data: PathBuf = voice_agent::thinker::data_dir();
     let screen = env_num("SCREEN", 1u16);
     let vis = if env_num("HEADLESS", 0u8) == 1 { Visibility::Headless } else { Visibility::Offscreen };
     let chrome = Chrome::launch(&data, screen, vis).await?;

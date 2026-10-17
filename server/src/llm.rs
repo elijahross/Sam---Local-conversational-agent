@@ -674,7 +674,7 @@ mod cache_probe {
     #[tokio::test]
     #[ignore]
     async fn cache_probe() {
-        let _ = dotenvy::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/../.env"));
+        crate::config::load_dev_env();
         let app = crate::AppState::from_env().await.unwrap();
         let system: String = (0..400).map(|i| format!("Rule {i}: answer briefly and stay friendly, never invent facts about item {i}. ")).collect();
         for p in [super::Provider::MiniMax, super::Provider::OpenAI] {

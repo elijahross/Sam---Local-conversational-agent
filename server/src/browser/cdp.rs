@@ -543,7 +543,7 @@ pub fn allowed_url(url: &str) -> bool {
     }
     if let Some(p) = url.trim().strip_prefix("file://") {
         let p = std::path::Path::new(p.split(['?', '#']).next().unwrap_or(p));
-        let lab = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../app/Tests/E2E/fixtures")).canonicalize().ok();
+        let lab = crate::config::repo_root().and_then(|r| r.join("app/Tests/E2E/fixtures").canonicalize().ok());
         let real = p.canonicalize().ok();
         return real.as_ref().is_some_and(|r| lab.as_ref().is_some_and(|l| r.starts_with(l)) || r.starts_with("/private/tmp/sam-e2e") || r.starts_with("/tmp/sam-e2e"));
     }

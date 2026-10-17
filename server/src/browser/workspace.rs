@@ -16,9 +16,10 @@ fn start() -> Option<Frame> {
     if crate::env_or("WORKSPACE_DISPLAY", "1") == "0" {
         return None;
     }
-    let bin = std::env::var("WORKSPACE_BIN").unwrap_or_else(|_| match crate::config::app_resources() {
-        Some(r) => r.join("bin/sam-workspace").display().to_string(),
-        None => concat!(env!("CARGO_MANIFEST_DIR"), "/../sidecar/workspace/build/sam-workspace").to_string(),
+    let bin = std::env::var("WORKSPACE_BIN").unwrap_or_else(|_| match (crate::config::app_resources(), crate::config::repo_root()) {
+        (Some(r), _) => r.join("bin/sam-workspace").display().to_string(),
+        (None, Some(r)) => r.join("sidecar/workspace/build/sam-workspace").display().to_string(),
+        (None, None) => "sam-workspace".into(),
     });
     let mut child = std::process::Command::new(&bin)
         .stdin(std::process::Stdio::piped())

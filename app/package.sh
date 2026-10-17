@@ -8,7 +8,9 @@ cd "$(dirname $0)/.."
 source release/version.env
 VER=$VERSION
 echo "== building parts"
-(cd server && cargo build --release --bin voice-agent 2>&1 | tail -1)
+# The shipped server carries no build machine paths (panic locations, crate sources): remapped,
+# in its own target dir so development builds keep their cache.
+(cd server && CARGO_TARGET_DIR=target/dist RUSTFLAGS="--remap-path-prefix=$HOME=~ --remap-path-prefix=$PWD=." cargo build --release --bin voice-agent 2>&1 | tail -1)
 ./sidecar/applestt/build.sh >/dev/null
 ./sidecar/workspace/build.sh >/dev/null
 ./sidecar/computer/build.sh >/dev/null
@@ -33,7 +35,7 @@ mkdir -p dist
 cp -R app/Sam/build/Sam.app dist/Sam.app
 R=dist/Sam.app/Contents/Resources
 mkdir -p $R/bin $R/server $R/sidecar/applestt/build $R/voices $R/runtime dist/Sam.app/Contents/Library/Helpers
-cp server/target/release/voice-agent $R/bin/sam-server
+cp server/target/dist/release/voice-agent $R/bin/sam-server
 cp sidecar/workspace/build/sam-workspace $R/bin/sam-workspace
 cp "$(command -v uv)" $R/bin/uv
 cp -R server/tools server/static server/mcp.json server/persona_sam.md $R/server/

@@ -13,8 +13,7 @@ use voice_agent::{AppState, env_or, llm, session};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let _ = dotenvy::from_filename("../.env");
-    let _ = dotenvy::dotenv();
+    voice_agent::config::load_dev_env();
     tracing_subscriber::fmt()
         // html5ever warns once per odd node on every scraped page: thousands of lines of noise.
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()).add_directive("html5ever=error".parse().unwrap()))

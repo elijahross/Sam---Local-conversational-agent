@@ -196,7 +196,7 @@ pub fn resources_dir() -> std::path::PathBuf {
     if let Some(r) = app_resources() {
         return r.join("server");
     }
-    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    repo_root().map(|r| r.join("server")).unwrap_or_default()
 }
 
 /// Sam.app/Contents/Resources when the server runs from inside the app bundle.
@@ -204,6 +204,24 @@ pub fn app_resources() -> Option<std::path::PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let contents = exe.ancestors().find(|a| a.file_name().is_some_and(|n| n == "Contents"))?;
     Some(contents.join("Resources")).filter(|r| r.join("server").exists())
+}
+
+/// The source checkout when running from one (`cargo run`, `cargo test`, target/ binaries),
+/// found at run time so no build machine path is compiled into the binary. None inside Sam.app.
+pub fn repo_root() -> Option<std::path::PathBuf> {
+    if app_resources().is_some() {
+        return None;
+    }
+    let (exe, cwd) = (std::env::current_exe().ok(), std::env::current_dir().ok());
+    exe.iter().chain(cwd.iter()).flat_map(|p| p.ancestors()).find(|d| d.join("server/Cargo.toml").is_file()).map(|d| d.to_path_buf())
+}
+
+/// Development keys from the checkout's .env. Never inside Sam.app: there keys come from the
+/// Keychain, and a build machine's .env must not leak into a release.
+pub fn load_dev_env() {
+    if let Some(r) = repo_root() {
+        let _ = dotenvy::from_path(r.join(".env"));
+    }
 }
 
 /// Sam's voice (onboarding: male | female): data/voice.json, else SAM_VOICE, else male.
@@ -460,5 +478,15 @@ impl AppState {
             });
         }
         Ok(state)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Tests run from target/…/deps inside the checkout: the repo is found at run time.
+    #[test]
+    fn repo_root_found_from_checkout() {
+        let r = super::repo_root().expect("repo root");
+        assert!(r.join("server/Cargo.toml").is_file() && r.join(".env.example").is_file(), "{r:?}");
     }
 }

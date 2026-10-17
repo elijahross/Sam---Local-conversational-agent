@@ -124,7 +124,7 @@ pub fn data_dir() -> PathBuf {
     if crate::config::app_resources().is_some() {
         return PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("Library/Application Support/Sam/data");
     }
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../data"))
+    crate::config::repo_root().map(|r| r.join("data")).unwrap_or_else(|| "data".into())
 }
 
 pub async fn plan(app: &AppState, request: &str, tools: &str, model: Provider) -> anyhow::Result<(Plan, Usage)> {
