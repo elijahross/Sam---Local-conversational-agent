@@ -1,0 +1,11 @@
+{
+ "name": "doc_review",
+ "summary": "Review a document (PDF, Word, text) the user points at or names: find gaps, check the argument, summarize, give feedback; writes a report.",
+ "kinds": ["documents"],
+ "effects": "read",
+ "args": {
+  "path": "string (optional: the pointed-at file is used)",
+  "task": "string: what to look for"
+ },
+ "runner": "builtin"
+}

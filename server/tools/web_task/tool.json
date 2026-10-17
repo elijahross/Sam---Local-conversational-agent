@@ -1,0 +1,12 @@
+{
+ "name": "web_task",
+ "summary": "Do something on a website the user points at or names: leave a comment, fill a survey or form, check out an order. Sam fills everything in its own browser and asks before the final post/submit/pay click.",
+ "kinds": ["web", "browser", "documents"],
+ "effects": "write",
+ "approval": "ask_always",
+ "args": {
+  "url": "string (optional: the pointed-at page is used)",
+  "goal": "string: what to do, with every detail the user gave (text of the comment, answers, quantity, address…)"
+ },
+ "runner": "builtin"
+}

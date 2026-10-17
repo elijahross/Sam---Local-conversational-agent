@@ -1,0 +1,15 @@
+{
+ "name": "linkedin_comment",
+ "summary": "Write a thoughtful comment on a LinkedIn post (a lead's recent post, or a post URL). Drafted for the user's approval; daily cap.",
+ "args": {
+  "person": "string: whose recent post (name / profile URL), or empty with post",
+  "post": "string: post URL (optional)",
+  "instructions": "string: angle of the comment (optional)"
+ },
+ "kinds": [
+  "browser",
+  "message"
+ ],
+ "effects": "write",
+ "runner": "builtin"
+}

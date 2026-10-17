@@ -1,0 +1,15 @@
+{
+ "name": "reminder_create",
+ "summary": "Add a reminder / to-do (optionally with a due time) to the user's Reminders.",
+ "kinds": [
+  "calendar"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "title": "string",
+  "due": "RFC 3339 with offset (optional)",
+  "list": "string (optional)"
+ },
+ "runner": "builtin"
+}

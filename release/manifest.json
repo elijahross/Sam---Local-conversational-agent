@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "version": 1,
+  "published": "2026-10-17",
+  "min_app_build": 1,
+  "settings": {
+    "MINIMAX_VOICE_MODEL": "MiniMax-M3.1-Flash-Preview",
+    "MINIMAX_LIGHT_MODEL": "MiniMax-M3.1-Flash-Preview",
+    "MINIMAX_MODEL": "MiniMax-M3",
+    "MINIMAX_REASONING": "low",
+    "OPENAI_MODEL": "gpt-6-luna",
+    "OPENAI_REASONING": "none",
+    "GEMINI_MODEL": "gemini-3.5-flash-lite",
+    "GEMINI_THINKING": "minimal"
+  },
+  "models": {
+    "anthropic": ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"],
+    "mistral": ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest"]
+  },
+  "replace": {
+    "MiniMax-M2*": "default"
+  },
+  "hf": {
+    "tts": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit",
+    "tts_steady": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    "tts_tiny": "mlx-community/pocket-tts",
+    "embed": "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ",
+    "judge": "elijahross/laya-sam",
+    "turn": "mlx-community/smart-turn-v3"
+  },
+  "message": null
+}

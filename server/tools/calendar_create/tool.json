@@ -1,0 +1,18 @@
+{
+ "name": "calendar_create",
+ "summary": "Create a calendar event; drafted first, created after the user confirms.",
+ "kinds": [
+  "calendar"
+ ],
+ "effects": "write",
+ "approval": "ask_always",
+ "args": {
+  "title": "string",
+  "start": "RFC 3339 with offset",
+  "end": "RFC 3339 with offset",
+  "calendar": "string (optional)",
+  "location": "string (optional)",
+  "notes": "string (optional)"
+ },
+ "runner": "builtin"
+}

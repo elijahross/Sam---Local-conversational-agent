@@ -1,0 +1,16 @@
+{
+ "name": "calendar_events",
+ "summary": "List the user's calendar events in a date range (all calendars on this Mac).",
+ "kinds": [
+  "calendar",
+  "email",
+  "research"
+ ],
+ "effects": "read",
+ "args": {
+  "from": "YYYY-MM-DD (default today)",
+  "days": "int (default 7)",
+  "query": "string: title filter (optional)"
+ },
+ "runner": "builtin"
+}

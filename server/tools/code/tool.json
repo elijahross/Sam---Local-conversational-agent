@@ -1,0 +1,15 @@
+{
+ "name": "code",
+ "summary": "Write and run a Python program in an isolated sandbox VM (no network): compute, simulate, analyze or convert data, rank/filter/aggregate files; inputs optional; results saved as files.",
+ "kinds": [
+  "code",
+  "documents",
+  "research"
+ ],
+ "effects": "read",
+ "args": {
+  "task": "string: what the program must compute or produce",
+  "inputs": "string[] (optional): \"$prev\" or file paths"
+ },
+ "runner": "builtin"
+}

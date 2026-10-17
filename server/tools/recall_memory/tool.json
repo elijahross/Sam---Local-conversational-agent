@@ -1,0 +1,16 @@
+{
+ "name": "recall_memory",
+ "summary": "Search everything Sam remembers about the user (facts, past conversations, exact transcript lines), optionally within dates.",
+ "kinds": [
+  "memory",
+  "documents"
+ ],
+ "effects": "read",
+ "runner": "builtin",
+ "args": {
+  "query": "string",
+  "from": "YYYY-MM-DD (optional)",
+  "to": "YYYY-MM-DD (optional, exclusive)",
+  "transcripts": "bool: include exact past lines (default true)"
+ }
+}

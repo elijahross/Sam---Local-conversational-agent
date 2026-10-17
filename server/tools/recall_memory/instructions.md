@@ -1,0 +1,1 @@
+Use for questions about the user's own past: 'when did I…', 'list everything I told you about…', 'what did I say about X last week'. Normal turns already get the top memories automatically; this tool goes deeper (20 items + transcript lines). Superseded facts are marked OUTDATED.

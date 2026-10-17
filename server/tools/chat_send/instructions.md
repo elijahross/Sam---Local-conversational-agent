@@ -1,0 +1,1 @@
+Sam opens the chat in its own browser screen (its own linked WhatsApp session, never the user's window), verifies the chat header, reads the recent messages as untrusted data and drafts the reply from `instructions`. The card shows the verified recipient, the message being answered and the editable text. Sending re-checks the header and confirms the message appeared as outgoing.

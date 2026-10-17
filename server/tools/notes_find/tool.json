@@ -1,0 +1,8 @@
+{
+ "name": "notes_find",
+ "summary": "Find the user's notes by words in title or text.",
+ "kinds": ["documents"],
+ "effects": "read",
+ "args": {"query": "string"},
+ "runner": "builtin"
+}

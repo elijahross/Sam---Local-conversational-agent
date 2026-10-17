@@ -1,0 +1,9 @@
+{
+ "name": "reminder_complete",
+ "summary": "Mark an open reminder / to-do as done (by its title; asks if several match).",
+ "kinds": ["calendar"],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {"title": "string: the reminder", "list": "string (optional)"},
+ "runner": "builtin"
+}

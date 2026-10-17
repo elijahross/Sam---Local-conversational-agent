@@ -1,0 +1,12 @@
+{
+ "name": "find_files",
+ "summary": "Find the user's files by name in the folders they granted.",
+ "kinds": [
+  "documents"
+ ],
+ "effects": "read",
+ "args": {
+  "words": "string: distinctive words of the file name"
+ },
+ "runner": "builtin"
+}

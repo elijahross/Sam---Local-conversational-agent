@@ -1,0 +1,15 @@
+{
+ "name": "knowledge_ask",
+ "summary": "Answer questions about the user's own work by connecting their sources \u2014 mail, calendar, reminders, notes, files in granted folders, Sam's past tasks \u2014 with citations: decisions and what changed, current state vs old, conflicting numbers, what's open / overdue / unanswered, who is involved. Use for 'what did we decide about\u2026', 'what changed since\u2026', 'what do I need to do next on\u2026', 'where do we stand with\u2026'.",
+ "kinds": [
+  "documents",
+  "email",
+  "calendar",
+  "research"
+ ],
+ "effects": "read",
+ "args": {
+  "question": "string: the question, self-contained"
+ },
+ "runner": "builtin"
+}

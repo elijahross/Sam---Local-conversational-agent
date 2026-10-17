@@ -1,0 +1,57 @@
+{
+ "Hm, okay,": {
+  "file": "fillers/hm-okay.wav",
+  "sim": 0.968,
+  "dur_s": 0.84
+ },
+ "Let me think,": {
+  "file": "fillers/let-me-think.wav",
+  "sim": 0.973,
+  "dur_s": 0.49
+ },
+ "Hmm, good one,": {
+  "file": "fillers/hmm-good-one.wav",
+  "sim": 0.971,
+  "dur_s": 1.0
+ },
+ "Let me see,": {
+  "file": "fillers/let-me-see.wav",
+  "sim": 0.971,
+  "dur_s": 0.53
+ },
+ "Mm, yeah,": {
+  "file": "fillers/mm-yeah.wav",
+  "sim": 0.963,
+  "dur_s": 1.11
+ },
+ "Oh, okay,": {
+  "file": "fillers/oh-okay.wav",
+  "sim": 0.967,
+  "dur_s": 0.94
+ },
+ "Okay,": {
+  "file": "fillers/okay.wav",
+  "sim": 0.964,
+  "dur_s": 0.39
+ },
+ "Mm, hang on,": {
+  "file": "fillers/mm-hang-on.wav",
+  "sim": 0.968,
+  "dur_s": 1.16
+ },
+ "Hm, one sec,": {
+  "file": "fillers/hm-one-sec.wav",
+  "sim": 0.976,
+  "dur_s": 1.35
+ },
+ "And, um,": {
+  "file": "fillers/and-um.wav",
+  "sim": 0.966,
+  "dur_s": 0.85
+ },
+ "One sec,": {
+  "file": "fillers/one-sec.wav",
+  "sim": 0.973,
+  "dur_s": 0.74
+ }
+}

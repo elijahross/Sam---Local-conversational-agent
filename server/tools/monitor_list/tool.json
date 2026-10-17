@@ -1,0 +1,8 @@
+{
+ "name": "monitor_list",
+ "summary": "List the user's saved-search monitors: what each watches, how often, last check, how many new listings.",
+ "kinds": ["research", "browser"],
+ "effects": "read",
+ "args": {},
+ "runner": "builtin"
+}

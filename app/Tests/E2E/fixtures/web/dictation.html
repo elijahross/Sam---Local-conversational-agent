@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Dictation Test</title>
+<style>body{font:15px system-ui;margin:30px}textarea{width:90%;height:160px;font:15px system-ui}</style></head><body>
+<h1>Dictation Test</h1><textarea id="t" autofocus placeholder="Dictate here"></textarea>
+<p>Mirror: <span id="m"></span></p>
+<script>const t = document.getElementById('t'), m = document.getElementById('m'); t.focus();
+const mirror = () => { m.textContent = t.value.replace(/\n/g, ' ⏎ '); };
+t.addEventListener('input', mirror); setInterval(mirror, 300);</script></body></html>

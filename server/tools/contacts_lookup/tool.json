@@ -1,0 +1,13 @@
+{
+ "name": "contacts_lookup",
+ "summary": "Find a person in the user's contacts (emails, phones).",
+ "kinds": [
+  "email",
+  "calendar"
+ ],
+ "effects": "read",
+ "args": {
+  "name": "string"
+ },
+ "runner": "builtin"
+}

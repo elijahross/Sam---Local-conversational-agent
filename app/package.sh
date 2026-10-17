@@ -1,0 +1,80 @@
+#!/bin/zsh
+# Builds the standalone Sam.app (dist/Sam.app) and a DMG to install it: the app, the agent
+# server, Apple speech recognition, the workspace display, the computer-use helper, Sam's
+# voices, uv and the pinned Python package list. The Python runtime and the
+# voice, memory, judgment and turn-taking models are installed by the app itself on first run (onboarding › Setup).
+set -e
+cd "$(dirname $0)/.."
+source release/version.env
+VER=$VERSION
+echo "== building parts"
+(cd server && cargo build --release --bin voice-agent 2>&1 | tail -1)
+./sidecar/applestt/build.sh >/dev/null
+./sidecar/workspace/build.sh >/dev/null
+./sidecar/computer/build.sh >/dev/null
+./app/Sam/build.sh >/dev/null
+
+# The app's Python runtime has no numba/llvmlite (setup removes them, ~260 MB): the speech
+# sidecar's voice check must run without them (2026-10-16: librosa.pyin crashed it in every app).
+uv run --no-project --quiet --python 3.12 --with numpy python - <<'PYCHK'
+import sys, numpy as np, wave
+sys.modules["numba"] = None; sys.modules["llvmlite"] = None
+src = open("sidecar/speech_server.py").read()
+ns = {"np": np}; exec(src[src.index("def _f0_st"):src.index("def _drift")], ns)
+w = wave.open("voices/sam-female/ref.wav"); a = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
+if w.getframerate() != 24000: a = np.interp(np.arange(0, len(a), w.getframerate() / 24000), np.arange(len(a)), a).astype(np.float32)
+f = ns["_f0_st"](a); assert f is not None and 5 < f < 14, f
+print(f"voice check runs without numba (ref pitch {f:.1f} st)")
+PYCHK
+
+echo "== assembling dist/Sam.app"
+rm -rf dist/Sam.app dist/dmg
+mkdir -p dist
+cp -R app/Sam/build/Sam.app dist/Sam.app
+R=dist/Sam.app/Contents/Resources
+mkdir -p $R/bin $R/server $R/sidecar/applestt/build $R/voices $R/runtime dist/Sam.app/Contents/Library/Helpers
+cp server/target/release/voice-agent $R/bin/sam-server
+cp sidecar/workspace/build/sam-workspace $R/bin/sam-workspace
+cp "$(command -v uv)" $R/bin/uv
+cp -R server/tools server/static server/mcp.json server/persona_sam.md $R/server/
+cp sidecar/speech_server.py sidecar/mind_server.py sidecar/model_manager.py $R/sidecar/
+cp sidecar/applestt/build/applestt $R/sidecar/applestt/build/
+for v in sam-male sam-female; do mkdir -p $R/voices/$v; cp -R voices/$v/{ref.wav,ref.txt,voice.json,fillers.json,fillers} $R/voices/$v/; done
+cp app/runtime/requirements.lock $R/runtime/
+cp -R "sidecar/computer/build/Sam Computer Use.app" "dist/Sam.app/Contents/Library/Helpers/"
+# The helper shows up in Privacy & Security (Accessibility, Screen Recording): Sam's icon there too.
+HELPER="dist/Sam.app/Contents/Library/Helpers/Sam Computer Use.app"
+mkdir -p "$HELPER/Contents/Resources"
+cp $R/AppIcon.icns "$HELPER/Contents/Resources/"
+/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$HELPER/Contents/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$HELPER/Contents/Info.plist"
+
+echo "== signing"
+ID=$(security find-identity -p codesigning | grep -E "(Sam|Rowan) Local Code Signing" | head -1 | awk '{print $2}')
+SIGN=(codesign --force --timestamp=none --sign "${ID:--}")
+for f in $R/bin/* $R/sidecar/applestt/build/applestt; do $SIGN "$f"; done
+$SIGN --identifier one.sam.computeruse "dist/Sam.app/Contents/Library/Helpers/Sam Computer Use.app"
+F="dist/Sam.app/Contents/Frameworks/Sparkle.framework/Versions/B"
+for x in "$F/XPCServices/Installer.xpc" "$F/XPCServices/Downloader.xpc" "$F/Autoupdate" "$F/Updater.app" "dist/Sam.app/Contents/Frameworks/Sparkle.framework"; do $SIGN "$x"; done
+$SIGN --identifier one.sam.app dist/Sam.app
+codesign --verify --deep --strict dist/Sam.app && echo "signature ok"
+
+echo "== dmg"
+mkdir -p dist/dmg
+cp -R dist/Sam.app dist/dmg/
+ln -s /Applications dist/dmg/Applications
+# The mounted volume shows Sam's icon (.VolumeIcon.icns + the custom-icon flag on the volume).
+cp $R/AppIcon.icns dist/dmg/.VolumeIcon.icns
+rm -f dist/Sam-$VER.dmg dist/Sam-rw.dmg
+hdiutil create -volname "Sam" -srcfolder dist/dmg -ov -format UDRW dist/Sam-rw.dmg >/dev/null
+MNT=$(mktemp -d /tmp/sam-dmg.XXXXXX)
+hdiutil attach dist/Sam-rw.dmg -nobrowse -noautoopen -mountpoint "$MNT" >/dev/null
+SetFile -a C "$MNT"
+SetFile -a V "$MNT/.VolumeIcon.icns"
+hdiutil detach "$MNT" >/dev/null
+rmdir "$MNT" 2>/dev/null || true
+hdiutil convert dist/Sam-rw.dmg -format UDZO -o dist/Sam-$VER.dmg >/dev/null
+rm -f dist/Sam-rw.dmg
+rm -rf dist/dmg
+# The .dmg file's own icon in Finder (kept locally; downloads show the generic disk image).
+app/Sam/build/make_icon --set-icon $R/AppIcon.icns dist/Sam-$VER.dmg || true
+du -sh dist/Sam.app dist/Sam-$VER.dmg

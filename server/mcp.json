@@ -1,0 +1,23 @@
+{
+  "servers": {
+    "time": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-time",
+        "--local-timezone=Europe/Vienna"
+      ],
+      "read_tools": [
+        "get_current_time",
+        "convert_time"
+      ]
+    },
+    "everything": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-everything"
+      ],
+      "enabled": false
+    }
+  }
+}

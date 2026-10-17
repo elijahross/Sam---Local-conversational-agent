@@ -1,0 +1,22 @@
+{
+ "name": "monitor_create",
+ "summary": "Watch a search on a listings site (willhaben, ImmoScout24, eBay, Kleinanzeigen, Amazon, any results page) on a schedule and alert the user whenever a NEW listing appears. Use for 'tell me when…', 'let me know if a new … shows up', 'check … every hour/day', 'monitor/watch …'. The first run stores what is there now.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "name": "string: short label, e.g. 'Flats Wien ≤1200 €'",
+  "site": "willhaben | immoscout_at | immoscout_de | ebay_de | ebay_at | kleinanzeigen | amazon_de | other",
+  "kind": "market (things for sale) | rent | buy (flats)",
+  "query": "string: search words (things), or extra words for flats (e.g. 'balkon')",
+  "place": "string: city for flats (Wien, Graz, Berlin, München…)",
+  "min_price": "number (optional)",
+  "max_price": "number (optional)",
+  "url": "string: ONLY for site=other — that site's search URL with the filters, newest first",
+  "interval_min": "int: minutes between checks (default 60; 15–30 for fast markets, 360 or 1440 for slow ones)"
+ },
+ "runner": "builtin"
+}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture Sign-in</title>
+<style>body{font-family:-apple-system,sans-serif;max-width:420px;margin:60px auto}input,button{display:block;width:100%;margin:8px 0;padding:8px;font-size:16px}</style></head>
+<body>
+<h1>Sign in</h1>
+<p>Test double for Sam's saved-login sign-in. Password for every user: <code>fixture-pw-7Q</code>. Add <code>?twostep=1</code> for a username-first form; <code>?otp=1</code> adds a code step.</p>
+<form id="f" autocomplete="off">
+  <div id="step1"><label>Email or username<input id="user" name="username" type="text" autocomplete="username" placeholder="you@example.com"></label></div>
+  <div id="step2"><label>Password<input id="pw" name="password" type="password" autocomplete="current-password"></label></div>
+  <div id="step3" style="display:none"><label>One-time code<input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code"></label></div>
+  <button id="go" type="submit">Log in</button>
+</form>
+<script>
+const q = new URLSearchParams(location.search); const twostep = q.get('twostep') === '1'; const wantOtp = q.get('otp') === '1';
+let phase = twostep ? 'user' : 'pw';
+if (twostep) { document.getElementById('step2').style.display = 'none'; document.getElementById('go').textContent = 'Continue'; }
+document.getElementById('f').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const u = document.getElementById('user').value.trim(), p = document.getElementById('pw').value;
+  if (phase === 'user') { if (!u) return; document.getElementById('step1').style.display = 'none'; document.getElementById('step2').style.display = ''; document.getElementById('go').textContent = 'Log in'; phase = 'pw'; document.getElementById('pw').focus(); return; }
+  if (phase === 'pw') {
+    if (p !== 'fixture-pw-7Q') { document.body.insertAdjacentHTML('beforeend', '<p class="err">Wrong password</p>'); return; }
+    if (wantOtp) { document.getElementById('step2').style.display = 'none'; document.getElementById('step3').style.display = ''; document.getElementById('go').textContent = 'Verify'; phase = 'otp'; return; }
+    done(u); return;
+  }
+  if (phase === 'otp') { if (document.getElementById('otp').value.trim().length === 6) done(u); else document.body.insertAdjacentHTML('beforeend', '<p class="err">Code must be 6 digits</p>'); }
+});
+function done(u) { document.cookie = 'fixture_session=' + encodeURIComponent(u) + '; path=/'; document.body.innerHTML = '<h1>Signed in as ' + u.replace(/[<>&]/g, '') + '</h1><p>fixture: session cookie set</p>'; }
+</script>
+</body></html>

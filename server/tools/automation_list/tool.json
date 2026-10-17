@@ -1,0 +1,13 @@
+{
+ "name": "automation_list",
+ "summary": "List the user's automations (schedules and watches): what they do, when, last run.",
+ "kinds": [
+  "calendar",
+  "documents",
+  "email",
+  "research"
+ ],
+ "effects": "read",
+ "args": {},
+ "runner": "builtin"
+}

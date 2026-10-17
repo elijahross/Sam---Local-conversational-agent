@@ -1,0 +1,9 @@
+{
+ "name": "journal_add",
+ "summary": "Add an entry to the user's journal / daily note (today unless a date is given); timestamped, append-only.",
+ "kinds": ["documents", "calendar"],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {"text": "string: the entry", "date": "YYYY-MM-DD (optional)"},
+ "runner": "builtin"
+}

@@ -1,0 +1,13 @@
+{
+ "name": "monitor_delete",
+ "summary": "Delete a saved-search monitor and the listings it stored (asks the user first).",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "write",
+ "args": {
+  "monitor": "string: which monitor (its name or words from it)"
+ },
+ "runner": "builtin"
+}

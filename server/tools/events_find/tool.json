@@ -1,0 +1,14 @@
+{
+ "name": "events_find",
+ "summary": "What's on: events in a city on a date (exhibitions, museums, concerts, theatre, specials), curated to the user's interests with time, venue and link. Use for 'what's on in Vienna tomorrow', 'interesting events this weekend', evening briefings about the next day.",
+ "kinds": [
+  "research"
+ ],
+ "effects": "read",
+ "args": {
+  "place": "string: city (Vienna for now)",
+  "date": "YYYY-MM-DD (e.g. tomorrow's date)",
+  "interests": "string: what the user likes (museums, extraordinary concerts\u2026)"
+ },
+ "runner": "builtin"
+}

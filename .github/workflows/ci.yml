@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Manifest, Python, scripts, hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Model manifest
+        run: |
+          BASE=""
+          if [ "${{ github.event_name }}" = "pull_request" ] && git show "origin/${{ github.base_ref }}:release/manifest.json" > /tmp/base.json 2>/dev/null; then
+            BASE="--base /tmp/base.json"
+          fi
+          python tools/check_manifest.py release/manifest.json $BASE
+      - name: Python syntax
+        run: python -m py_compile sidecar/*.py tools/*.py app/Tests/E2E/e2e.py app/Tests/Security/attack_tests.py
+      - name: Shell syntax
+        run: |
+          sudo apt-get install -y zsh > /dev/null
+          for f in run.sh app/package.sh app/release.sh app/Sam/build.sh sidecar/*/build.sh sidecar/computer/signing.sh; do zsh -n "$f"; done
+      - name: No secrets, keys or personal data tracked
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|^data/|\.p12$|\.pem$|sam-update-key' ; then
+            echo "::error::These files must not be committed"; exit 1
+          fi
+
+  server:
+    name: Rust server (build + tests)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+      - name: Build
+        working-directory: server
+        run: cargo build --release --locked
+      - name: Unit tests
+        working-directory: server
+        run: cargo test --release --lib --locked
+
+  app:
+    name: macOS app and helpers (build)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Helpers
+        run: |
+          ./sidecar/applestt/build.sh
+          ./sidecar/computer/build.sh
+          ./sidecar/workspace/build.sh
+      - name: Sam.app
+        run: ./app/Sam/build.sh
+      - name: Bundle check
+        run: |
+          codesign --verify --deep --strict app/Sam/build/Sam.app
+          test -f app/Sam/build/Sam.app/Contents/Resources/manifest.json
+          /usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" app/Sam/build/Sam.app/Contents/Info.plist

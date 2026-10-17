@@ -1,0 +1,17 @@
+{
+ "name": "automation_update",
+ "summary": "Pause or resume an automation.",
+ "kinds": [
+  "calendar",
+  "documents",
+  "email",
+  "research"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "automation": "string: which (words from its name)",
+  "action": "pause | resume"
+ },
+ "runner": "builtin"
+}

@@ -1,0 +1,13 @@
+{
+ "name": "chat_send",
+ "summary": "Reply in a chat app (WhatsApp, Telegram, Slack) to a person, group or channel; Sam reads the chat (the installed WhatsApp app, else its own browser session), drafts the message, sends only after the user confirms.",
+ "kinds": ["message"],
+ "effects": "write",
+ "approval": "ask_always",
+ "args": {
+  "chat": "string: the person or group",
+  "site": "\"whatsapp\" | \"telegram\" | \"slack\" (optional; default from the pointed-at window)",
+  "instructions": "string: what the message should say"
+ },
+ "runner": "builtin"
+}

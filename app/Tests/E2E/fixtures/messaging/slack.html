@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><title>allgemein (Channel) - test - Slack</title>
+<!-- Test double of Slack in the browser: [data-qa=channel_sidebar] with
+     [data-qa=channel_sidebar_name_button] names, [data-qa=channel_name_button] header,
+     [data-qa=message_container] (sender with data-message-sender only on the first of a group),
+     [data-qa=message_input] .ql-editor (Enter sends). The signed-in user is U_ME. -->
+<style>body{margin:0;font:14px system-ui;display:flex;height:100vh}[data-qa=channel_sidebar]{width:260px;background:#3f0e40;color:#fff;padding:8px}
+[data-qa=channel_sidebar_name_button]{display:block;padding:6px;cursor:pointer}#main{flex:1;display:flex;flex-direction:column}
+#hdr{padding:10px;border-bottom:1px solid #ddd;font-weight:600}#msgs{flex:1;overflow:auto;padding:10px}[data-qa=message_container]{padding:4px 0}
+[data-qa=message_sender_name]{font-weight:600;margin-right:6px}.ql-editor{margin:8px;padding:8px;border:1px solid #ccc;border-radius:8px;min-height:18px}</style></head><body>
+<script>
+localStorage.setItem("localConfig_v2", JSON.stringify({teams: {T1: {user_id: "U_ME"}}}));
+const CHATS = {
+  "allgemein": [["U_ANNA","Anna Huber","10:01","Who can review the Q4 deck today?"],["U_ANNA","Anna Huber","10:02","I'd need feedback by 4pm."]],
+  "Ahmed Amr": [["U_AHMED","Ahmed Amr","09:30","Hey, can we move our sync to Thursday 3pm?"]],
+  "zufällig": [["U_TOM","Tom","Yesterday","🍕 Friday?"]]
+};
+const stored = JSON.parse(localStorage.getItem("slack_sent") || "[]"); window.__sent = stored;
+for (const s of stored) (CHATS[s.chat] = CHATS[s.chat] || []).push(["U_ME","Elijah","now",s.text]);
+let current = null;
+document.body.innerHTML = `<div data-qa="channel_sidebar"></div><div id="main"><div id="hdr"><button data-qa="channel_name_button"></button></div><div id="msgs"></div>
+<div data-qa="message_input"><div class="ql-editor" contenteditable="true"></div></div></div>`;
+const side = document.querySelector("[data-qa=channel_sidebar]");
+for (const n of Object.keys(CHATS)) { const b = document.createElement("span"); b.setAttribute("data-qa", "channel_sidebar_name_button");
+  b.textContent = (n.includes(" ") ? "" : "# ") + n; b.onmousedown = () => open(n); side.appendChild(b); }
+function open(n){ current = n; document.querySelector("[data-qa=channel_name_button]").textContent = (n.includes(" ") ? "" : "# ") + n;
+  const box = document.querySelector("#msgs"); box.innerHTML = ""; let prev = "";
+  for (const [id,name,t,text] of CHATS[n]) { const c = document.createElement("div"); c.setAttribute("data-qa", "message_container");
+    c.innerHTML = (id !== prev ? `<span data-qa="message_sender_name" data-message-sender="${id}"></span>` : "") + `<span data-qa="timestamp_label" aria-label="${t}"></span><div data-qa="message-text"></div>`;
+    if (id !== prev) c.querySelector("[data-qa=message_sender_name]").textContent = name; c.querySelector("[data-qa=message-text]").textContent = text; box.appendChild(c); prev = id; } }
+const input = document.querySelector(".ql-editor");
+input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && current && input.innerText.trim()) { e.preventDefault();
+  const text = input.innerText; window.__sent.push({chat: current, text}); localStorage.setItem("slack_sent", JSON.stringify(window.__sent));
+  CHATS[current].push(["U_ME","Elijah","now",text]); input.innerText = ""; open(current); } });
+</script></body></html>

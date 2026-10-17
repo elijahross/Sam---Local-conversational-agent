@@ -1,0 +1,1 @@
+Build the search/listing URL yourself. Fields are short snake_case names (title, price, rating, reviews, url). Add a url/link field when a later details step needs the item pages. Lists inside dialogs (followers/following) work: use the dialog URL, e.g. https://www.instagram.com/<account>/following/.

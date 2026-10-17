@@ -1,0 +1,52 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv*/
+__pycache__/
+*.pyc
+
+# Build output
+target/
+app/Sam/build/
+sidecar/applestt/build/
+sidecar/computer/build/
+sidecar/workspace/build/
+dist/
+app/vendor/
+
+# Dev runtime data (memory, history, browser profiles): personal, never commit
+/data/
+
+# Model weights: downloaded from Hugging Face at setup
+models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.gguf
+*.npz
+*.npy
+
+# Audio: generated takes are not tracked; the voice profiles Sam ships with are
+*.wav
+!voices/*/ref.wav
+!voices/*/fillers/*.wav
+
+# Test output
+app/Tests/E2E/shots/
+app/Tests/E2E/e2e-results.jsonl
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+app/Tests/E2E/vdisplay/vdisplay
+
+# Update signing key backups (generate_keys -x): never commit
+sam-update-key*

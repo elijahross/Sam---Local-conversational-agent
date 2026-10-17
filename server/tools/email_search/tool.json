@@ -1,0 +1,16 @@
+{
+ "name": "email_search",
+ "summary": "Search the user's mailbox (newest first): sender, subject, date and a short snippet per mail.",
+ "kinds": [
+  "email"
+ ],
+ "effects": "read",
+ "args": {
+  "text": "string (optional)",
+  "from": "string (optional)",
+  "since_days": "int (optional)",
+  "unread": "bool (optional)",
+  "limit": "int (default 10)"
+ },
+ "runner": "builtin"
+}

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sam</title>
+<style>
+  :root { --bg:#fafaf9; --fg:#1c1917; --muted:#78716c; --card:#fff; --line:#e7e5e4; --accent:#2563eb; --user:#eff6ff; --agent:#f5f5f4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0c0a09; --fg:#f5f5f4; --muted:#a8a29e; --card:#1c1917; --line:#292524; --accent:#60a5fa; --user:#172554; --agent:#1c1917; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:720px; margin:0 auto; padding:24px 16px; display:flex; flex-direction:column; gap:16px; min-height:100vh; }
+  header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; flex:1; }
+  button { font:inherit; padding:8px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  #status { color:var(--muted); font-size:13px; }
+  #dot { width:10px; height:10px; border-radius:50%; background:var(--line); transition:background .15s; }
+  #dot.user { background:#16a34a; } #dot.agent { background:var(--accent); }
+  #log { flex:1; display:flex; flex-direction:column; gap:8px; }
+  .msg { padding:8px 12px; border-radius:10px; max-width:85%; }
+  .msg.user { background:var(--user); align-self:flex-end; }
+  .msg.agent { background:var(--agent); border:1px solid var(--line); }
+  .msg.cut::after { content:" ⏹"; color:var(--muted); }
+  .tone { font:11px ui-monospace, monospace; color:var(--muted); margin-right:4px; }
+  .note { font-size:12px; color:var(--muted); font-style:italic; align-self:flex-start; }
+  .metrics { font:12px ui-monospace, monospace; color:var(--muted); align-self:flex-start; }
+  form { display:flex; gap:8px; } input { flex:1; font:inherit; padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); min-width:0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div id="dot"></div><h1>Sam</h1>
+    <button id="start" class="primary">Start talking</button>
+    <button id="reset">Reset</button>
+  </header>
+  <div id="status">Click start. Headphones give the cleanest barge-in.</div>
+  <div id="log"></div>
+  <form id="typed"><input id="text" placeholder="…or type a message" autocomplete="off"><button>Send</button></form>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let ws, sampleRate = 24000, playCtx, nextTime = 0, sources = [], agentEl = null;
+
+const worklet = `
+class Capture extends AudioWorkletProcessor {
+  process(inputs) { const ch = inputs[0][0]; if (ch) this.port.postMessage(ch.slice(0)); return true; }
+}
+registerProcessor('capture', Capture);`;
+
+function add(cls, text) {
+  const el = document.createElement('div'); el.className = 'msg ' + cls; el.textContent = text;
+  $('log').appendChild(el); el.scrollIntoView({ block: 'end' }); return el;
+}
+function setDot(s) { $('dot').className = s || ''; }
+
+function stopPlayback() {
+  for (const s of sources) { try { s.stop(); } catch {} }
+  sources = []; nextTime = 0;
+}
+function playPcm(buf) {
+  const pcm = new Int16Array(buf), f = new Float32Array(pcm.length);
+  for (let i = 0; i < pcm.length; i++) f[i] = pcm[i] / 32768;
+  const ab = playCtx.createBuffer(1, f.length, sampleRate); ab.copyToChannel(f, 0);
+  const src = playCtx.createBufferSource(); src.buffer = ab; src.connect(playCtx.destination);
+  const t = Math.max(playCtx.currentTime + 0.03, nextTime); src.start(t); nextTime = t + ab.duration;
+  sources.push(src); src.onended = () => { sources = sources.filter((s) => s !== src); if (!sources.length) setDot(''); };
+  setDot('agent');
+}
+
+async function start() {
+  $('start').disabled = true;
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  const capCtx = new AudioContext();
+  playCtx = new AudioContext();
+  await capCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([worklet], { type: 'application/javascript' })));
+  const node = new AudioWorkletNode(capCtx, 'capture');
+  capCtx.createMediaStreamSource(stream).connect(node);
+
+  // Resample context rate -> 16 kHz (linear) and ship 32 ms Int16 frames.
+  const ratio = capCtx.sampleRate / 16000; let carry = new Float32Array(0), pos = 0, out = [];
+  node.port.onmessage = (e) => {
+    const x = new Float32Array(carry.length + e.data.length); x.set(carry); x.set(e.data, carry.length);
+    while (pos + 1 < x.length) { const i = Math.floor(pos), fr = pos - i; out.push(x[i] * (1 - fr) + x[i + 1] * fr); pos += ratio; }
+    const keep = Math.floor(pos); carry = x.slice(keep); pos -= keep;
+    while (out.length >= 512) {
+      const fr = out.splice(0, 512), i16 = new Int16Array(512);
+      for (let i = 0; i < 512; i++) i16[i] = Math.max(-1, Math.min(1, fr[i])) * 32767;
+      if (ws?.readyState === 1) ws.send(i16.buffer);
+    }
+  };
+
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  ws.binaryType = 'arraybuffer';
+  ws.onmessage = (e) => {
+    if (typeof e.data !== 'string') return playPcm(e.data);
+    const m = JSON.parse(e.data);
+    switch (m.type) {
+      case 'ready': sampleRate = m.sample_rate; $('status').textContent = `Listening · LLM ${m.llm} · TTS ${m.sample_rate} Hz`; break;
+      case 'user_speaking': setDot('user'); break;
+      case 'transcript': add('user', m.text); agentEl = null; break;
+      case 'agent_text': {
+        if (!agentEl) { agentEl = add('agent', ''); agentEl.dataset.tone = ''; }
+        if (m.tone && m.tone !== agentEl.dataset.tone) {
+          const t = document.createElement('span'); t.className = 'tone'; t.textContent = m.tone; agentEl.appendChild(t); agentEl.dataset.tone = m.tone;
+        }
+        agentEl.appendChild(document.createTextNode(m.text + ' ')); break;
+      }
+      case 'delegated': { const el = add('note', `thinking deeper with ${m.model}…`); el.className = 'note'; break; }
+      case 'interrupt': stopPlayback(); if (agentEl) agentEl.classList.add('cut'); agentEl = null; setDot('user'); break;
+      case 'metrics': { const el = add('metrics', `stt ${m.stt_ms} · llm ttft ${m.llm_ttft_ms} · 1st chunk ${m.first_chunk_ms} · 1st audio ${m.first_audio_ms} ms · voice→voice ≈ ${m.v2v_ms} ms`); el.className = 'metrics'; break; }
+      case 'error': $('status').textContent = '⚠ ' + m.message; break;
+    }
+  };
+  ws.onclose = () => { $('status').textContent = 'Disconnected'; $('start').disabled = false; };
+}
+
+$('start').onclick = () => start().catch((e) => { $('status').textContent = '⚠ ' + e.message; $('start').disabled = false; });
+$('reset').onclick = () => { ws?.send(JSON.stringify({ type: 'reset' })); $('log').innerHTML = ''; };
+$('typed').onsubmit = (e) => {
+  e.preventDefault(); const t = $('text').value.trim(); if (!t || ws?.readyState !== 1) return;
+  stopPlayback(); add('user', t); agentEl = null; ws.send(JSON.stringify({ type: 'text', text: t })); $('text').value = '';
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+ "name": "leads_campaign",
+ "summary": "A LARGE lead list built over days or weeks (hundreds to tens of thousands of people) on LinkedIn for a product: start it, check its status, pause or resume. Runs in the background in small paced sessions under a daily page budget; a CSV grows as it goes. Use when the user wants many leads (e.g. '10,000 leads', 'keep collecting\u2026'); for a quick top 10 use leads_find.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "action": "start | status | pause | resume",
+  "product": "string: product link or idea (start), or words to find the list",
+  "target": "int: how many people (start, default 1000)",
+  "place": "string: region focus (optional)",
+  "daily_views": "int: LinkedIn pages per day (default 100, max 120)"
+ },
+ "runner": "builtin"
+}

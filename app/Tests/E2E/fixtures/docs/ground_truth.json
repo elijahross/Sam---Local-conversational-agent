@@ -1,0 +1,7 @@
+{"gaps": {
+ "unsourced_statistic": ["47%", "source", "citation", "cite", "studies show"],
+ "no_counterarguments": ["counter", "collaboration", "isolation", "drawback", "downside", "opposing", "limitation"],
+ "single_case_generalization": ["acme", "single", "one company", "anecdot", "generaliz", "sample"],
+ "productivity_undefined": ["defin", "measure", "metric", "operational"],
+ "conclusion_overreach": ["overreach", "overgeneral", "every", "too strong", "absolute", "overstat", "sweeping"]
+}}

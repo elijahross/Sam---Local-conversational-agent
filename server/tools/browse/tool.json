@@ -1,0 +1,13 @@
+{
+ "name": "browse",
+ "summary": "Do an open-ended task on one website: fill a form, navigate to something, check an account page.",
+ "kinds": [
+  "browser"
+ ],
+ "effects": "write",
+ "args": {
+  "goal": "string",
+  "url": "string (optional start page)"
+ },
+ "runner": "builtin"
+}

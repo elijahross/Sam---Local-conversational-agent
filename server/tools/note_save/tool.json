@@ -1,0 +1,9 @@
+{
+ "name": "note_save",
+ "summary": "Save a note for later in the user's notes (Apple Notes › Sam, or their Obsidian vault Inbox).",
+ "kinds": ["documents", "calendar"],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {"title": "string (optional)", "text": "string: the note content"},
+ "runner": "builtin"
+}

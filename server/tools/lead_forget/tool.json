@@ -1,0 +1,13 @@
+{
+ "name": "lead_forget",
+ "summary": "Delete everything Sam stored about a person (lead data, notes) \u2014 e.g. on their request (GDPR).",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "write",
+ "args": {
+  "person": "string: name or LinkedIn profile URL"
+ },
+ "runner": "builtin"
+}

@@ -1,0 +1,11 @@
+{
+ "name": "monitor_results",
+ "summary": "Listings a monitor has collected (stored, no new scraping): what's new since a time, or everything it has seen. Use for 'anything new on my willhaben search?', 'show the flats from last week', or to build on earlier results.",
+ "kinds": ["research", "browser"],
+ "effects": "read",
+ "args": {
+  "monitor": "string: which monitor (its name or words from it)",
+  "since": "string: 24h | 7d | 30d | all (default 24h)"
+ },
+ "runner": "builtin"
+}

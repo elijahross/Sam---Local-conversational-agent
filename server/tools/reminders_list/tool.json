@@ -1,0 +1,12 @@
+{
+ "name": "reminders_list",
+ "summary": "List the user's open reminders / to-dos (optionally one list).",
+ "kinds": [
+  "calendar"
+ ],
+ "effects": "read",
+ "args": {
+  "list": "string (optional list name)"
+ },
+ "runner": "builtin"
+}

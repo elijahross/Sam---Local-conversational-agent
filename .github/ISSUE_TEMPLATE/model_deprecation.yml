@@ -1,0 +1,26 @@
+name: Model or API change
+description: A provider retired a model, changed an API, or a better model is available
+labels: [models]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Affected model or API
+      placeholder: "MiniMax-M3 (minimax), mlx-community/… , OpenAI Responses API"
+    validations:
+      required: true
+  - type: input
+    id: date
+    attributes:
+      label: Retirement date or announcement link
+  - type: textarea
+    id: replacement
+    attributes:
+      label: Suggested replacement
+      description: Model id and why. Numbers help (latency, cost, quality); see docs/BENCHMARKS.md for how Sam measures.
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Can the model manifest fix it?
+      description: Model ids and Hugging Face repos ship through release/manifest.json without an app update; endpoint or request format changes need an app release.
+      options: [Yes, just a model id or repo, No, the API itself changed, Not sure]

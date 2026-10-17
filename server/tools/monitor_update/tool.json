@@ -1,0 +1,16 @@
+{
+ "name": "monitor_update",
+ "summary": "Change a monitor: pause, resume, check now, or change how often it checks.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "write",
+ "args": {
+  "monitor": "string: which monitor (its name or words from it)",
+  "action": "pause | resume | run | interval",
+  "minutes": "int: new interval (action interval)"
+ },
+ "runner": "builtin",
+ "approval": "always_allow"
+}

@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Customer Survey — Café Prückel</title>
+<style>body{font:15px system-ui;max-width:640px;margin:40px auto}.page{display:none}.page.on{display:block}label{display:block;margin:6px 0}</style></head><body>
+<h1>How was your visit?</h1><p>3 short pages · takes 1 minute</p>
+<form id="s">
+<div class="page on" id="p1"><h2>1. Overall</h2><p>How satisfied were you overall?</p>
+ <label><input type="radio" name="overall" value="1"> 1 – Very unsatisfied</label><label><input type="radio" name="overall" value="2"> 2</label>
+ <label><input type="radio" name="overall" value="3"> 3</label><label><input type="radio" name="overall" value="4"> 4</label>
+ <label><input type="radio" name="overall" value="5"> 5 – Very satisfied</label>
+ <button type="button" onclick="go(2)">Next</button></div>
+<div class="page" id="p2"><h2>2. What did you order?</h2>
+ <label><input type="checkbox" name="order" value="coffee"> Coffee</label><label><input type="checkbox" name="order" value="cake"> Cake</label>
+ <label><input type="checkbox" name="order" value="breakfast"> Breakfast</label><label><input type="checkbox" name="order" value="lunch"> Lunch</label>
+ <label>How did you hear about us? <select name="source"><option value="">Choose…</option><option>Friends</option><option>Google</option><option>Instagram</option><option>Walked by</option></select></label>
+ <button type="button" onclick="go(1)">Back</button> <button type="button" onclick="go(3)">Next</button></div>
+<div class="page" id="p3"><h2>3. Anything else?</h2>
+ <label>Comments <textarea name="feedback" rows="3"></textarea></label>
+ <label><input type="checkbox" name="newsletter"> Subscribe to our newsletter</label>
+ <button type="button" onclick="go(2)">Back</button> <button type="submit">Submit survey</button></div>
+</form>
+<script>
+function go(n){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('p'+n).classList.add('on');}
+document.getElementById('s').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target);
+  window.__result = {overall: f.get('overall'), order: f.getAll('order'), source: f.get('source'), feedback: f.get('feedback'), newsletter: !!f.get('newsletter')};
+  document.body.innerHTML = '<h1>Thank you!</h1><p id="done">Your answers were submitted.</p><pre>' + JSON.stringify(window.__result) + '</pre>'; });
+</script></body></html>

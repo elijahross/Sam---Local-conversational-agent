@@ -1,0 +1,11 @@
+{
+ "name": "chat_read",
+ "summary": "Read the recent messages of a chat (WhatsApp, Telegram, Slack channel or DM).",
+ "kinds": ["message"],
+ "effects": "read",
+ "args": {
+  "chat": "string: the person or group",
+  "site": "\"whatsapp\" | \"telegram\" | \"slack\" (optional)"
+ },
+ "runner": "builtin"
+}

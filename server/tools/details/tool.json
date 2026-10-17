@@ -1,0 +1,16 @@
+{
+ "name": "details",
+ "summary": "Read the same fields from many detail pages (product pages, profiles); urls can come from the previous scrape step ($prev).",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "task": "string",
+  "urls": "string[] or \"$prev\"",
+  "fields": "string[]",
+  "max_items": "int (default 50)"
+ },
+ "runner": "builtin"
+}

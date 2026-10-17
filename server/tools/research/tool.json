@@ -1,0 +1,12 @@
+{
+ "name": "research",
+ "summary": "Web search, read the top pages and write a short cited brief. For questions that need current or web facts.",
+ "kinds": [
+  "research"
+ ],
+ "effects": "read",
+ "args": {
+  "request": "string: the research question"
+ },
+ "runner": "builtin"
+}

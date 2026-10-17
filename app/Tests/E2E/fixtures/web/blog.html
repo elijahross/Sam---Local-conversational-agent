@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Why trains beat planes in Europe — Slow Travel Blog</title>
+<style>body{font:15px system-ui;max-width:720px;margin:40px auto;line-height:1.6}label{display:block;margin-top:10px}input,textarea{width:100%;padding:6px}</style></head><body>
+<article><h1>Why trains beat planes in Europe</h1><p>By Lena Fischer · 3 October 2026</p>
+<p>For trips under 800 km, night trains and high-speed rail often beat flying door to door. Vienna to Munich takes four hours by train, city centre to city centre, with no security queue.</p>
+<p>What's your favourite European rail route? Tell us in the comments.</p></article>
+<section id="comments"><h2>Comments (1)</h2><div class="comment"><b>Tom</b>: The Nightjet to Hamburg is great!</div></section>
+<form id="cf"><h3>Leave a comment</h3>
+<label>Name <input name="author" id="author" required></label>
+<label>Email (not published) <input type="email" name="email" id="email" required></label>
+<label>Comment <textarea name="comment" id="comment" rows="4" required></textarea></label>
+<button type="submit">Post comment</button></form>
+<script>
+document.getElementById('cf').addEventListener('submit', e => { e.preventDefault();
+  const f = e.target, c = document.createElement('div'); c.className = 'comment';
+  c.innerHTML = '<b></b>: <span></span>'; c.querySelector('b').textContent = f.author.value; c.querySelector('span').textContent = f.comment.value;
+  document.getElementById('comments').appendChild(c); window.__result = {posted: true, author: f.author.value, comment: f.comment.value};
+  f.outerHTML = '<p id="thanks">Thanks! Your comment has been posted.</p>'; });
+</script></body></html>

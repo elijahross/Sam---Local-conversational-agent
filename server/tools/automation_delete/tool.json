@@ -1,0 +1,15 @@
+{
+ "name": "automation_delete",
+ "summary": "Delete an automation (asks the user first).",
+ "kinds": [
+  "calendar",
+  "documents",
+  "email",
+  "research"
+ ],
+ "effects": "write",
+ "args": {
+  "automation": "string: which (words from its name)"
+ },
+ "runner": "builtin"
+}

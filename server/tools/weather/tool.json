@@ -1,0 +1,13 @@
+{
+ "name": "weather",
+ "summary": "Current weather and a short forecast (up to 7 days) for a place.",
+ "kinds": [
+  "research"
+ ],
+ "effects": "read",
+ "args": {
+  "place": "string: city or place name",
+  "days": "int 1-7 (default 3)"
+ },
+ "runner": "builtin"
+}

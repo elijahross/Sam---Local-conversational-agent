@@ -1,0 +1,23 @@
+{
+ "name": "automation_create",
+ "summary": "Make Sam do something automatically: at a time ('every weekday at 8: morning briefing', 'Fridays 16:00 weekly report') or when something happens / holds ('when a new email from X arrives…', 'if a task is overdue…', 'when a meeting ended…', 'if a deadline is 2 days away and the task is open…', 'when a file appears in folder Y…'). Runs in the background; actions that need approval still ask.",
+ "kinds": [
+  "calendar",
+  "documents",
+  "email",
+  "research"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "name": "string: short label",
+  "request": "string: what Sam should do each time — the user's own words, without the timing and without adding anything they didn't ask for (no extra delivery channel such as chat or email unless named; results arrive as a notification)",
+  "type": "schedule | watch",
+  "at": "HH:MM (schedule)",
+  "days": "daily | weekdays | [\"mon\",\"fri\"] (schedule)",
+  "every_min": "int (schedule every N minutes, or how often a watch checks; default 15)",
+  "when": "string (watch): the event or condition in the user's words",
+  "max_per_day": "int (default 5)"
+ },
+ "runner": "builtin"
+}

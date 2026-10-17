@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in Sam doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Please don't paste API keys, passwords, personal messages or memories. Logs are in `~/Library/Logs/Sam/`; skim them before attaching. Security problems: use a private advisory instead (see SECURITY.md)."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what happened instead. For voice issues, the exact words you said.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open the island with ⌥Space\n2. Say …\n3. …"
+  - type: input
+    id: version
+    attributes:
+      label: Sam version
+      description: Menu bar › ⏻ › Check for Updates… shows it
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac and macOS
+      placeholder: MacBook Pro M3, 18 GB, macOS 26.1
+  - type: dropdown
+    id: provider
+    attributes:
+      label: AI provider
+      options: [MiniMax, OpenAI, Anthropic, Gemini, Mistral, Ollama (local), Claude CLI, Not relevant]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: From ~/Library/Logs/Sam/server.log, speech.log or mind.log (redact anything personal)
+      render: text

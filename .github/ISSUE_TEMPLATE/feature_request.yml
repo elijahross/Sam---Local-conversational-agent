@@ -1,0 +1,27 @@
+name: Feature request
+description: An idea that would make Sam more useful
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like Sam to do
+      description: Describe it as a conversation or a flow if you can ("I say …, Sam …").
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Privacy and safety
+      description: Would this send new data off the Mac, act on an account, or need a new permission? How should the user stay in control?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

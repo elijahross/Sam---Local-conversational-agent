@@ -1,0 +1,15 @@
+{
+ "name": "music_play",
+ "summary": "Play music: a song, artist, genre, mood or playlist on YouTube (default; a genre or mood starts a playlist), Spotify, or Apple Music (songs and playlists in the user's own library). Also pause / resume / next / stop what is playing: it knows where the music plays.",
+ "kinds": [
+  "music"
+ ],
+ "effects": "read",
+ "approval": "always_allow",
+ "args": {
+  "query": "string: what to play ('some jazz', 'Nina Simone', 'lofi for working', 'Blue in Green by Miles Davis'); empty for pause / resume / next / stop",
+  "service": "youtube | spotify | music (Apple Music; optional, only when the user names it)",
+  "action": "play | pause | resume | next | stop (optional, default play)"
+ },
+ "runner": "builtin"
+}

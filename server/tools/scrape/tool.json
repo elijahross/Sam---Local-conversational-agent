@@ -1,0 +1,16 @@
+{
+ "name": "scrape",
+ "summary": "Collect structured items (products, listings, profiles) from a listing or search page into a table.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "task": "string",
+  "url": "string: listing/search URL you build (e.g. https://www.amazon.com/s?k=wireless+earbuds)",
+  "fields": "string[]: column names",
+  "max_items": "int (default 100)"
+ },
+ "runner": "builtin"
+}

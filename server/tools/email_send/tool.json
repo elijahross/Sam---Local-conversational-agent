@@ -1,0 +1,16 @@
+{
+ "name": "email_send",
+ "summary": "Write and send an email or a reply; drafted first, sent only after the user confirms.",
+ "kinds": [
+  "email"
+ ],
+ "effects": "write",
+ "args": {
+  "to": "string[] (optional for replies)",
+  "subject": "string (optional for replies)",
+  "instructions": "string: what the mail should say",
+  "reply_to_uid": "int or \"$prev\" (optional)"
+ },
+ "runner": "builtin",
+ "approval": "ask_always"
+}

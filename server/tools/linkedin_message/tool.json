@@ -1,0 +1,14 @@
+{
+ "name": "linkedin_message",
+ "summary": "Send a LinkedIn message to a first-degree contact. Drafted for the user's approval; daily cap.",
+ "args": {
+  "person": "string: name or LinkedIn profile URL",
+  "instructions": "string: what the message should say"
+ },
+ "kinds": [
+  "browser",
+  "message"
+ ],
+ "effects": "write",
+ "runner": "builtin"
+}

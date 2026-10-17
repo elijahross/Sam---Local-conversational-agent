@@ -1,0 +1,15 @@
+{
+ "name": "leads_find",
+ "summary": "Find the people on LinkedIn who best fit a product as buyers / decision makers: from a product link or idea, plans the buyer profile, searches LinkedIn (the user's own session in Sam's browser), ranks everyone and checks the best profiles, with a reason and an outreach angle each. Use for 'find leads / customers / prospects for …', 'who should I sell … to'.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "product": "string: the product link (URL) or the idea in the user's words",
+  "place": "string: country / city to focus on (optional)",
+  "count": "int: how many top leads to check in depth (default 10)"
+ },
+ "runner": "builtin"
+}

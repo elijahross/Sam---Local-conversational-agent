@@ -1,0 +1,13 @@
+{
+ "name": "web_fetch",
+ "summary": "Read one web page (URL) as clean text.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "url": "string"
+ },
+ "runner": "builtin"
+}

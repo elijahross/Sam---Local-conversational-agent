@@ -1,0 +1,9 @@
+{
+ "name": "computer",
+ "summary": "Operate a Mac app in the background for the user (e.g. calculate in Calculator, write or edit a document in TextEdit/Pages, change an app's view). Only when no dedicated tool fits; you approve the goal first. Off-limits: Terminal, Keychain, Disk Utility; Settings is read-only.",
+ "kinds": ["computer", "documents"],
+ "effects": "write",
+ "approval": "ask_always",
+ "args": {"app": "string: the app's name, e.g. Calculator", "goal": "string: what to achieve in that app, self-contained"},
+ "runner": "builtin"
+}

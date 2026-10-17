@@ -1,0 +1,8 @@
+{
+ "name": "reddit_research",
+ "summary": "Deep research on Reddit: what people say in threads and comments — customer pains, complaints, opinions, what they use today, willingness to pay, idea validation. Use for 'what do people think/complain about…', 'would people pay for…', 'validate this idea'.",
+ "kinds": ["research"],
+ "effects": "read",
+ "args": {"question": "string: what to find out, self-contained"},
+ "runner": "builtin"
+}

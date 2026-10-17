@@ -1,0 +1,12 @@
+{
+ "name": "email_read",
+ "summary": "Read one email in full (text, attachments by name) by its uid from email_search.",
+ "kinds": [
+  "email"
+ ],
+ "effects": "read",
+ "args": {
+  "uid": "int or \"$prev\" (first result of the previous search)"
+ },
+ "runner": "builtin"
+}

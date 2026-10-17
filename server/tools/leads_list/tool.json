@@ -1,0 +1,13 @@
+{
+ "name": "leads_list",
+ "summary": "Leads Sam found earlier for a product (stored, no new LinkedIn visits): best first with reason and angle.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "product": "string: which product / campaign (words from it)"
+ },
+ "runner": "builtin"
+}

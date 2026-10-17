@@ -1,0 +1,14 @@
+{
+ "name": "linkedin_connect",
+ "summary": "Send a LinkedIn connection request (with a short personal note) to a person — usually a lead Sam found. Drafted for the user's approval; daily cap.",
+ "args": {
+  "person": "string: name or LinkedIn profile URL",
+  "instructions": "string: what the note should say (optional; Sam writes it from the lead's profile)"
+ },
+ "kinds": [
+  "browser",
+  "message"
+ ],
+ "effects": "write",
+ "runner": "builtin"
+}

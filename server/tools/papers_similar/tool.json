@@ -1,0 +1,12 @@
+{
+ "name": "papers_similar",
+ "summary": "Find related academic papers for a document the user points at (or a topic), optionally in a named field; OpenAlex + arXiv, ranked by meaning.",
+ "kinds": ["documents", "research"],
+ "effects": "read",
+ "args": {
+  "path": "string (optional: the pointed-at file is used)",
+  "field": "string (optional): research field to narrow to",
+  "query": "string (optional): a topic instead of a document"
+ },
+ "runner": "builtin"
+}
