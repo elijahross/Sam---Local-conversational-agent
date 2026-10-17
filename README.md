@@ -45,6 +45,49 @@
 
 Speech recognition, speech synthesis, memory and the small decision model all run locally on Apple Silicon. The conversation itself goes to the LLM provider you choose: a cloud API, or a fully local model through Ollama.
 
+### Screenshots
+
+All images are full-screen captures from a real session on a MacBook Pro (click to open in full resolution). Names of LinkedIn members are blurred.
+
+**LinkedIn lead search in the background** ([video](media/videos/linkedin-leads.mp4))
+
+<a href="media/videos/linkedin-leads.mp4"><img src="media/videos/linkedin-leads.gif" alt="Sam searching LinkedIn in the background and ranking leads" width="100%"></a>
+
+"Search LinkedIn for five product designers in Vienna and give me a table": Sam answers from the notch and hands the work to its own off-screen Chrome. The menu bar shows the running task. The overview ends up with 57 people ranked, the top 5 checked against their full profiles, and a reason plus an opening line for each one.
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><a href="media/screenshots/linkedin-1-request.jpg"><img src="media/screenshots/linkedin-1-request.jpg" alt="Island acknowledging the LinkedIn request"></a><br><sub>1. Ask from the notch</sub></td>
+    <td width="33%" valign="top"><a href="media/screenshots/linkedin-2-running.jpg"><img src="media/screenshots/linkedin-2-running.jpg" alt="Menu bar showing the running LinkedIn task"></a><br><sub>2. Runs in the background</sub></td>
+    <td width="33%" valign="top"><a href="media/screenshots/linkedin-3-leads.jpg"><img src="media/screenshots/linkedin-3-leads.jpg" alt="Overview with ranked LinkedIn leads, names blurred"></a><br><sub>3. Ranked leads with reasons</sub></td>
+  </tr>
+</table>
+
+**Voice to text** ([video](media/videos/dictation.mp4))
+
+<a href="media/videos/dictation.mp4"><img src="media/videos/dictation.gif" alt="Dictating a message into TextEdit" width="100%"></a>
+
+Hold ⌥⇧Space anywhere and speak. Fillers are removed, "new line" and "new paragraph" are applied, and the text lands in the focused field.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><a href="media/screenshots/weather.jpg"><img src="media/screenshots/weather.jpg" alt="Weather card in the island"></a><br><sub><b>Quick answers.</b> "Can you look up the weather in Vienna?" comes back as a card in the island.</sub></td>
+    <td width="50%" valign="top"><a href="media/screenshots/approval.jpg"><img src="media/screenshots/approval.jpg" alt="Approval card for a calendar event"></a><br><sub><b>Ask first.</b> Every write (an event, a message, an order) is drafted as a card and runs only after you approve.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><a href="media/screenshots/notes.jpg"><img src="media/screenshots/notes.jpg" alt="Sam adding a note"></a><br><sub><b>Notes.</b> "Add to my notes: …" goes to Apple Notes or Obsidian.</sub></td>
+    <td width="50%" valign="top"><a href="media/screenshots/reminders.jpg"><img src="media/screenshots/reminders.jpg" alt="Sam setting a reminder"></a><br><sub><b>Reminders.</b> "Remind me tomorrow at five pm to …" goes into macOS Reminders.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><a href="media/screenshots/research-report.jpg"><img src="media/screenshots/research-report.jpg" alt="Research report in the task overview"></a><br><sub><b>Web research with sources.</b> A presented report with key facts, highlights and cited sources.</sub></td>
+    <td width="50%" valign="top"><a href="media/screenshots/connectors.jpg"><img src="media/screenshots/connectors.jpg" alt="Connectors window"></a><br><sub><b>Connectors.</b> Calendar, Reminders, Contacts, email, WhatsApp, Telegram, Gmail, website logins, folders and MCP integrations.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><a href="media/screenshots/dictation-2-inserted.jpg"><img src="media/screenshots/dictation-2-inserted.jpg" alt="Dictated text inserted into TextEdit"></a><br><sub><b>Dictation result.</b> The cleaned-up text in TextEdit.</sub></td>
+    <td width="50%" valign="top"><a href="media/screenshots/onboarding-talking.jpg"><img src="media/screenshots/onboarding-talking.jpg" alt="Onboarding: how to talk to Sam"></a><br><sub><b>Onboarding.</b> The keys and gestures, explained on first launch.</sub></td>
+  </tr>
+</table>
+
 ## Requirements
 
 | | Minimum | Tested |
