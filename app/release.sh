@@ -3,11 +3,13 @@
 #   app/release.sh             full release: Sam.app (zip for Sparkle + dmg), appcast.xml, signed manifest
 #   app/release.sh --manifest  model manifest only: signed manifest.json for the latest release
 # Add --publish to upload with the GitHub CLI; without it the gh command is printed instead.
+# TAG=v0.1.0-beta.1 app/release.sh  publishes under another tag (default v$VERSION).
 # Signing uses the Sparkle EdDSA key in the login Keychain (app/vendor/Sparkle/bin/generate_keys).
 set -e
 cd "$(dirname $0)/.."
 source release/version.env
-REPO=elijahross/TTS
+REPO=elijahross/Sam---Local-conversational-agent
+TAG=${TAG:-v$VERSION}
 OUT=dist/release
 BIN=app/vendor/Sparkle/bin
 MODE=full; PUBLISH=0
@@ -26,15 +28,18 @@ echo "manifest v$NEW signed"
 
 if [ $MODE = full ]; then
   ./app/package.sh
-  ditto -c -k --sequesterRsrc --keepParent dist/Sam.app $OUT/Sam-$VERSION.zip
+  # The zip is only for Sparkle; "-update" keeps people from mistaking it for the download.
+  ditto -c -k --sequesterRsrc --keepParent dist/Sam.app $OUT/Sam-$VERSION-update.zip
   cp dist/Sam-$VERSION.dmg $OUT/
-  # appcast.xml: one entry for this version, EdDSA-signed, downloaded from the versioned release.
-  T=$(mktemp -d); cp $OUT/Sam-$VERSION.zip $T/
-  $BIN/generate_appcast --download-url-prefix "https://github.com/$REPO/releases/download/v$VERSION/" -o $OUT/appcast.xml $T >/dev/null
+  # appcast.xml: one entry for this version, EdDSA-signed, downloaded from the tagged release.
+  T=$(mktemp -d); cp $OUT/Sam-$VERSION-update.zip $T/
+  $BIN/generate_appcast --download-url-prefix "https://github.com/$REPO/releases/download/$TAG/" -o $OUT/appcast.xml $T >/dev/null
   rm -rf $T
   grep -q "sparkle:edSignature" $OUT/appcast.xml && echo "appcast signed (version $VERSION, build $BUILD)"
-  CMD=(gh release create "v$VERSION" $OUT/Sam-$VERSION.zip $OUT/Sam-$VERSION.dmg $OUT/appcast.xml $OUT/manifest.json $OUT/manifest.json.sig
-       --repo $REPO --title "Sam $VERSION" --generate-notes)
+  # Not a pre-release: the app reads appcast.xml and manifest.json from releases/latest, which skips pre-releases.
+  CMD=(gh release create "$TAG" $OUT/Sam-$VERSION.dmg $OUT/Sam-$VERSION-update.zip $OUT/appcast.xml $OUT/manifest.json $OUT/manifest.json.sig
+       --repo $REPO --title "Sam $VERSION" --latest --generate-notes
+       --notes "**Download [Sam-$VERSION.dmg](https://github.com/$REPO/releases/download/$TAG/Sam-$VERSION.dmg)**, open it and drag Sam to Applications. The other files are used by in-app updates; *Source code* is only needed to build Sam yourself.")
 else
   TAG=$(gh release view --repo $REPO --json tagName -q .tagName)
   CMD=(gh release upload "$TAG" $OUT/manifest.json $OUT/manifest.json.sig --repo $REPO --clobber)

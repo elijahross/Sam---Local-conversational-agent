@@ -100,7 +100,7 @@ Hold ⌥⇧Space anywhere and speak. Fillers are removed, "new line" and "new pa
 
 ## Install
 
-Download `Sam-<version>.dmg` from the [latest release](https://github.com/elijahross/TTS/releases/latest), or build it from source:
+Download **`Sam-<version>.dmg`** from the [latest release](https://github.com/elijahross/Sam---Local-conversational-agent/releases/latest), (the other files there are for in-app updates), or build it from source:
 
 ```sh
 git clone <this repo> sam && cd sam

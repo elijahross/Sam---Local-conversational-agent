@@ -9,7 +9,7 @@ only in the release maker's login Keychain.
 | **App update** | Code, sidecars, voices, Python packages | Sparkle checks `appcast.xml` daily; *Check for Updates…* in the menu-bar drop-down. A changed `app/runtime/requirements.lock` makes the app reinstall its runtime on the next start. |
 | **Model manifest** | Model ids per provider, retired models, Hugging Face repos | The app checks `manifest.json` at launch and daily, verifies the signature, downloads any new local model and restarts its services. No reinstall. |
 
-Both files are fetched from the **latest GitHub release** of `elijahross/TTS`
+Both files are fetched from the **latest GitHub release** of `elijahross/Sam---Local-conversational-agent`
 (`releases/latest/download/…`), so the repository has to be public for other users.
 
 ## Model manifest ([`manifest.json`](manifest.json))
@@ -33,9 +33,10 @@ safety settings are never in the manifest; they ship with app updates.
 ## App release
 
 1. Bump `VERSION` and `BUILD` in [`version.env`](version.env) (`BUILD` must increase; Sparkle compares it).
-2. `app/release.sh` builds and signs everything into `dist/release/`: `Sam-<version>.zip` (the
-   update), `Sam-<version>.dmg` (first installs), `appcast.xml`, `manifest.json` + `.sig`.
-3. `app/release.sh --publish` creates the GitHub release `v<version>` with those files.
+2. `app/release.sh` builds and signs everything into `dist/release/`: `Sam-<version>-update.zip` (the
+   Sparkle update), `Sam-<version>.dmg` (first installs), `appcast.xml`, `manifest.json` + `.sig`.
+3. `app/release.sh --publish` creates the GitHub release `v<version>` (or `$TAG`) with those files, marked as latest.
+   Don't mark it as a pre-release: `releases/latest` skips pre-releases, so installed apps would find no updates.
 
 ## The signing key
 

@@ -47,8 +47,8 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleShortVersionString</key><string>$VERSION</string>
 <key>CFBundleVersion</key><string>$BUILD</string>
-<key>SUFeedURL</key><string>https://github.com/elijahross/TTS/releases/latest/download/appcast.xml</string>
-<key>SamManifestURL</key><string>https://github.com/elijahross/TTS/releases/latest/download/manifest.json</string>
+<key>SUFeedURL</key><string>https://github.com/elijahross/Sam---Local-conversational-agent/releases/latest/download/appcast.xml</string>
+<key>SamManifestURL</key><string>https://github.com/elijahross/Sam---Local-conversational-agent/releases/latest/download/manifest.json</string>
 <key>SUPublicEDKey</key><string>$(cat ../../release/update-public-key.txt)</string>
 <key>SUEnableAutomaticChecks</key><true/>
 <key>SUScheduledCheckInterval</key><integer>86400</integer>

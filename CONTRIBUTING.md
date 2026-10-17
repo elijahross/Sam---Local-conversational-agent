@@ -37,7 +37,7 @@ Every change is weighed against these. A PR that bends one should say so and exp
 Requirements: an Apple Silicon Mac with macOS 26, Xcode command-line tools, Rust (stable), [`uv`](https://docs.astral.sh/uv/), and an API key for one LLM provider (or Ollama).
 
 ```sh
-git clone https://github.com/elijahross/TTS.git sam && cd sam
+git clone https://github.com/elijahross/Sam---Local-conversational-agent.git sam && cd sam
 cp .env.example .env              # add MINIMAX_API_KEY (or set LLM_PROVIDER=ollama)
 ./sidecar/computer/signing.sh     # once: local code-signing identity, keeps macOS permissions across rebuilds
 ./run.sh                          # dev stack; first run creates .venv and downloads models (~4 GB)
