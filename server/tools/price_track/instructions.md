@@ -1,0 +1,1 @@
+Pass the product links / ASINs the user gave (from the request or the pointed-at page). Without links, the tool asks for them. Prices come from the page's own offer data (0 tokens per check); an alert goes out on a drop or when the target price is reached.

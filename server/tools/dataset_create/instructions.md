@@ -1,0 +1,1 @@
+The first run happens now; then the dataset runs on its schedule in the background and the files are rewritten each time: data/datasets/<name>/<name>.xlsx (sheets data + changes), .csv and .md. Changed values (price, followers…) are kept as old → new in the changes sheet.

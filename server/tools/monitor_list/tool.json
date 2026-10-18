@@ -1,7 +1,10 @@
 {
  "name": "monitor_list",
- "summary": "List the user's saved-search monitors: what each watches, how often, last check, how many new listings.",
- "kinds": ["research", "browser"],
+ "summary": "List the user's saved-search monitors themselves (what each watches, how often, last check) — not the listings they found (monitor_results).",
+ "kinds": [
+  "research",
+  "browser"
+ ],
  "effects": "read",
  "args": {},
  "runner": "builtin"

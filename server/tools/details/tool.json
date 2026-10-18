@@ -1,6 +1,6 @@
 {
  "name": "details",
- "summary": "Read the same fields from many detail pages (product pages, profiles); urls can come from the previous scrape step ($prev).",
+ "summary": "Read the same fields once from many given pages (product pages, profiles): price, weight, specs… into a table; urls from the user or the previous scrape step ($prev). For repeated daily checks use price_track.",
  "kinds": [
   "research",
   "browser"

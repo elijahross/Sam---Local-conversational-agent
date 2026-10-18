@@ -1,0 +1,1 @@
+TikTok: video search in the creators' language, then up to ~15 profiles (~25 requests). X: people search (~6 requests). Instagram: hashtag pages, then at most 10 profiles (its daily budget is the tightest). Real creators often have fewer views than users expect: TikTok lists those separately instead of dropping them.

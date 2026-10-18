@@ -34,7 +34,10 @@ a bigger goal (research several things, compare, decide, write it up, send it…
 Use one step per action the user asked for (\"reply and add it to my calendar\" = an email_send step AND a calendar_create step); \
 otherwise prefer one step. An action whose details come from an earlier step (which event to create, which place to pick) is still a step: \
 its args are filled from that result when it runs, so never drop a create / draft / send the user asked for because the detail isn't known yet. \
-Pause, resume or delete an automation or monitor: automation_update / automation_delete / monitor_update / monitor_delete directly with words from its name, no list step first. Use scrape → code for ranked or filtered lists, scrape → details when item pages hold the fields. \
+Pause, resume or delete an automation or monitor: automation_update / automation_delete / monitor_update / monitor_delete directly with words from its name, no list step first. \
+What a monitor has found (\"anything new on my willhaben search?\", \"what did the monitor find?\"): monitor_results, not monitor_list. \
+Update / refresh an existing dataset or spreadsheet now: dataset_update with action run (not dataset_create). \
+Something to do every day / every morning / at a time (\"every morning at 7 tell me what's trending\"): automation_create with the task as its request. Use scrape → code for ranked or filtered lists, scrape → details when item pages hold the fields. \
 For a reply to a pointed-at email: email_send with \"to\" = the sender's address from the context and \"instructions\" describing the reply. \
 For a document the user points at (\"file\" in the context): doc_review to review/summarize/find gaps, papers_similar for related papers (\"field\" if named; it reads the document itself, so it needs no other step); the path is taken from the context. \
 For doing something on a web page (\"url\" in the context) — leave a comment, fill a survey or form, order / check out, book: web_task with \"goal\" holding every detail the user gave. \
@@ -54,6 +57,7 @@ Use computer only when no other tool fits (operating a Mac app such as Calculato
 \"$prev\" passes the previous step's output. Tools marked [needs user confirmation] are only drafted; the user confirms later.";
 
 /// Tools the planner sees (top-k one-liners) — the rest of the registry stays out of the prompt.
+/// Scored tools shown to the planner besides the 5 core tools (routing lab L8: 5 + 6 reached 91 %).
 const PLAN_TOOLS: usize = 6;
 /// Tools that set up recurring / automatic work: never used by an automation's own run.
 const SELF_SCHEDULING: &[&str] = &["automation_create", "automation_update", "automation_delete", "monitor_create", "monitor_update", "monitor_delete", "leads_campaign"];
@@ -304,7 +308,7 @@ pub async fn run_with(app: &AppState, request: &str, kind: Option<&str>, on_user
         p
     } else {
         let sims = tool_sims(app, &reg, request).await;
-        let chosen = reg.select(request, kind, sims.as_deref(), PLAN_TOOLS);
+        let chosen = reg.select_with_core(request, kind, sims.as_deref(), PLAN_TOOLS);
         let (mut p, u) = plan(app, request, &Registry::one_liners(&chosen), model).await?;
         tokens += u.prompt + u.completion;
         p.steps.retain(|st| asked_for(&st.tool, request) && !self_chat_unasked(st, request));
@@ -974,6 +978,62 @@ pub async fn run_with(app: &AppState, request: &str, kind: Option<&str>, on_user
                         }
                     }
                 }
+                "creators_find" => {
+                    let brief = if s("brief").is_empty() { request.split("\n\nContext").next().unwrap_or(request).to_string() } else { s("brief") };
+                    let range = crate::creators::parse_range(&a["followers"]);
+                    let (summary, md, d, tokens) = match s("site").to_lowercase().as_str() {
+                        "" | "tiktok" => {
+                            let r = crate::creators::find(app, &brief, range, a["min_avg_views"].as_i64(), a["count"].as_u64().unwrap_or(30) as usize, on_user.as_ref()).await?;
+                            (r.summary, r.markdown, r.data, r.tokens)
+                        }
+                        "x" | "twitter" => crate::social_sites::x_creators(app, &brief, range, on_user.as_ref()).await?,
+                        "instagram" | "ig" => crate::social_sites::ig_creators(app, &brief, range, on_user.as_ref()).await?,
+                        other => bail!("creators_find works on TikTok, X and Instagram, not {other}"),
+                    };
+                    let file = write_result(&data, "creators", &md, &d)?;
+                    Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true, summary, dir: None, file: Some(file.display().to_string()), tokens })
+                }
+                "social_profile" => {
+                    let (summary, d) = match s("site").to_lowercase().as_str() {
+                        "" | "tiktok" => crate::creators::analyze(&s("handle"), on_user.as_ref()).await?,
+                        "x" | "twitter" => crate::social_sites::x_profile(&s("handle"), on_user.as_ref()).await?,
+                        "instagram" | "ig" => crate::social_sites::ig_profile(&s("handle"), on_user.as_ref()).await?,
+                        other => bail!("social_profile works on TikTok, X and Instagram, not {other}"),
+                    };
+                    let file = write_result(&data, "creators", &format!("{summary}\n"), &d)?;
+                    Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true, summary, dir: None, file: Some(file.display().to_string()), tokens: 0 })
+                }
+                "social_trends" => {
+                    let site = if s("site").is_empty() { "tiktok".to_string() } else { s("site").to_lowercase() };
+                    let (summary, md, d, tokens) = crate::social_sites::trends(app, &site, &s("niche"), &s("country"), on_user.as_ref()).await?;
+                    let file = write_result(&data, "trends", &md, &d)?;
+                    Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true, summary, dir: None, file: Some(file.display().to_string()), tokens })
+                }
+                "social_research" => {
+                    let q = if s("question").is_empty() { request.split("\n\nContext").next().unwrap_or(request).to_string() } else { s("question") };
+                    let r = match s("site").to_lowercase().as_str() {
+                        "" | "x" | "twitter" | "x.com" => crate::social::research_x(app, &q, on_user.as_ref()).await?,
+                        "tiktok" => crate::social_sites::tiktok_research(app, &q, on_user.as_ref()).await?,
+                        "facebook_ads" | "fb_ads" | "ad_library" | "meta_ads" => {
+                            let who = if s("advertiser").is_empty() { q.clone() } else { s("advertiser") };
+                            let (summary, md, d) = crate::social_sites::fb_ads(&who, &s("country")).await?;
+                            crate::social::Report { markdown: md, summary, data: d, tokens: 0 }
+                        }
+                        other => bail!("social_research works on X, TikTok and the Facebook Ad Library (facebook_ads), not {other}"),
+                    };
+                    let file = write_result(&data, "social", &r.markdown, &r.data)?;
+                    Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true, summary: r.summary, dir: None, file: Some(file.display().to_string()), tokens: r.tokens })
+                }
+                "market_analysis" => {
+                    let item = if s("item").is_empty() { request.split("\n\nContext").next().unwrap_or(request).to_string() } else { s("item") };
+                    let country = if s("country").is_empty() { "at".to_string() } else { s("country").to_lowercase() };
+                    let r = crate::market::analyze(app, &item, &country, on_user.as_ref()).await?;
+                    let dir = data.join("artifacts/market");
+                    std::fs::create_dir_all(&dir)?;
+                    let file = dir.join(format!("{}.json", chrono::Local::now().format("%Y-%m-%d_%H%M%S")));
+                    std::fs::write(&file, serde_json::to_string_pretty(&r.data)?)?;
+                    Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true, summary: r.summary, dir: None, file: Some(file.display().to_string()), tokens: r.tokens })
+                }
                 "leads_list" => {
                     let st = crate::leads::store().context("leads unavailable")?;
                     let c = st.find_campaign(&format!("{} {}", s("product"), request)).context("no lead search yet")?;
@@ -991,16 +1051,39 @@ pub async fn run_with(app: &AppState, request: &str, kind: Option<&str>, on_user
                     let st = crate::monitors::store().context("monitors unavailable")?;
                     let num = |k: &str| a[k].as_f64().or_else(|| a[k].as_str().and_then(|x| crate::monitors::price_num(x))).filter(|v| *v > 0.0);
                     let (min, max) = (num("min_price"), num("max_price"));
+                    let flag = |k: &str| a[k].as_bool().unwrap_or(false) || matches!(s(k).as_str(), "true" | "yes" | "1");
+                    let own = request.split("\n\nContext").next().unwrap_or(request);
+                    // Planners often leave "zu verschenken" in the query instead of setting free.
+                    let (query, said_free) = crate::monitors::strip_free_words(&s("query"));
+                    let opts = crate::monitors::SearchOpts { free: flag("free") || said_free || crate::monitors::strip_free_words(own).1, private: flag("private") };
+                    let site = s("site");
+                    let kind = if matches!(s("kind").as_str(), "rent" | "buy") { s("kind") } else { "market".to_string() };
+                    // Free items are taken within hours: check every 30 min unless the user asked for a slower pace.
+                    let slow = regex::Regex::new(r"(?i)täglich|taeglich|jeden tag|daily|every day|once a day|einmal am tag|wöchentlich|weekly").map(|r| r.is_match(own)).unwrap_or(false);
                     // Known sites: the URL is built in code from the filters; other sites: the given URL.
-                    let url = crate::monitors::search_url(&s("site"), &s("kind"), &s("query"), &s("place"), min, max).unwrap_or_else(|| s("url"));
+                    let url = crate::monitors::search_url_opts(&site, &kind, &query, &s("place"), min, max, opts).unwrap_or_else(|| s("url"));
                     if !crate::browser::cdp::allowed_url(&url) {
                         bail!("monitor_create needs a known site (with query / place) or the search page URL");
                     }
                     let name = if s("name").is_empty() { crate::monitors::site_of(&url) } else { s("name") };
                     let minutes = a["interval_min"].as_i64().filter(|m| *m > 0).unwrap_or(60);
-                    // Things: every search word must be in the title; flats: the site's filters suffice.
-                    let words = if matches!(s("kind").as_str(), "rent" | "buy") { vec![] } else { crate::monitors::words_of(&s("query")) };
-                    let id = st.create_with(&name, request.split("\n\nContext").next().unwrap_or(request), &url, minutes, min, max, &words)?;
+                    let minutes = if opts.free && !slow { minutes.min(30) } else { minutes };
+                    // Things on a known site (monitor lab L1): 3-5 filter-free keywords, one search URL
+                    // each, and the judge instead of "every query word in the title" (that filter
+                    // missed a third of what users want: "Couch" for sofa, "Rennrad" for bike).
+                    let mut expand_tokens = 0;
+                    let filters = if kind == "market" && !query.is_empty() && crate::monitors::search_url(&site, &kind, "x", "", None, None).is_some() {
+                        let (kws, t) = crate::monitors::expand(app, own, &query).await;
+                        expand_tokens = t;
+                        let urls: Vec<String> = kws.iter().skip(1).filter_map(|k| crate::monitors::search_url_opts(&site, &kind, k, &s("place"), min, max, opts)).collect();
+                        let city = if site == "kleinanzeigen" { crate::monitors::kleinanzeigen_city(&s("place")).map(|c| c.0).unwrap_or("") } else { "" };
+                        serde_json::json!({"min": if opts.free { None } else { min }, "max": if opts.free { None } else { max }, "words": [], "urls": urls, "keywords": kws, "city": city, "judge": true, "free": opts.free})
+                    } else {
+                        // Flats: the site's filters suffice; other sites: the user's search words in the title.
+                        let words = if matches!(kind.as_str(), "rent" | "buy") { vec![] } else { crate::monitors::words_of(&query) };
+                        serde_json::json!({"min": min, "max": max, "words": words})
+                    };
+                    let id = st.create_full(&name, own, &url, minutes, &filters)?;
                     // Baseline now: the listings already there are stored (not alerted) and shown.
                     let m = st.get(&id).context("monitor vanished")?;
                     let t0 = std::time::Instant::now();
@@ -1008,15 +1091,150 @@ pub async fn run_with(app: &AppState, request: &str, kind: Option<&str>, on_user
                         Ok((d, tok)) => {
                             st.finish_run(&id, &d, tok, t0.elapsed().as_millis() as u64, None);
                             let top: Vec<String> = st.listings(&id, None, 8).iter().map(|l| format!("{} — {}", l["title"].as_str().unwrap_or(""), l["price"].as_str().unwrap_or(""))).collect();
-                            Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: d.found > 0,
-                                summary: format!("Monitor \"{name}\" set up: checks {} every {minutes} min and alerts on new listings. {} listings there now (stored as the baseline), e.g.: {}", m.site, d.found, top.join("; ")),
-                                dir: None, file: None, tokens: tok })
+                            let searches = crate::monitors::urls_of(&m).len();
+                            let there = match d.matched {
+                                // Nothing matching right now is a normal start for a rare item (a free trench coat).
+                                Some(0) => format!("Nothing matching is listed right now ({} listings checked); you'll hear when one appears.", d.found),
+                                Some(n) => format!("{n} matching listings there now (of {} checked; stored as the baseline), e.g.: {}", d.found, top.join("; ")),
+                                None => format!("{} listings there now (stored as the baseline), e.g.: {}", d.found, top.join("; ")),
+                            };
+                            Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true,
+                                summary: format!("Monitor \"{name}\" set up: checks {} every {minutes} min{} and alerts on new listings that match. {there}", m.site, if searches > 1 { format!(" ({searches} searches: {})", m.filters["keywords"].as_array().map(|k| k.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(", ")).unwrap_or_default()) } else { String::new() }),
+                                dir: None, file: None, tokens: tok + expand_tokens })
                         }
                         Err(e) => {
                             st.finish_run(&id, &crate::monitors::Diff::default(), 0, t0.elapsed().as_millis() as u64, Some(&format!("{e:#}")));
                             Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: false, summary: format!("Monitor \"{name}\" saved, but the first check failed: {e:#}. It retries on schedule."), dir: None, file: None, tokens: 0 })
                         }
                     }
+                }
+                "price_track" => {
+                    let st = crate::monitors::store().context("monitors unavailable")?;
+                    let own = request.split("\n\nContext").next().unwrap_or(request);
+                    let asin = regex::Regex::new(r"\b(B0[A-Z0-9]{8})\b").unwrap();
+                    let mut raw: Vec<String> = a["products"].as_array().map(|x| x.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()).unwrap_or_else(|| s("products").split([',', '\n']).map(str::to_string).collect());
+                    // Links / ASINs the user pasted with the request count too.
+                    raw.extend(own.split_whitespace().filter(|w| w.starts_with("http") || asin.is_match(w)).map(str::to_string));
+                    let mut urls: Vec<String> = vec![];
+                    for p in raw.iter().map(|p| p.trim().trim_matches(|c: char| c == ',' || c == ';' || c == '"')) {
+                        let u = if p.starts_with("http") { p.split(['?', '#']).next().unwrap_or(p).to_string() } else if let Some(c) = asin.captures(p) { format!("https://www.amazon.de/dp/{}", &c[1]) } else { continue };
+                        if crate::browser::cdp::allowed_url(&u) && !urls.contains(&u) {
+                            urls.push(u);
+                        }
+                    }
+                    if urls.is_empty() {
+                        return Ok(StepResult { status: "input_required".into(), tool: step.tool.clone(), ok: false,
+                            summary: "To track prices I need the product links (or Amazon ASINs) — send me the pages you want watched, e.g. your competitors' listings.".into(), dir: None, file: None, tokens: 0 });
+                    }
+                    urls.truncate(25);
+                    let alert = format!("{} {}", s("alert"), own);
+                    let below = regex::Regex::new(r"(?i)(?:unter|below|under|less than|weniger als|<)\s*(?:€|eur)?\s*(\d[\d.,]*)").unwrap().captures(&alert).and_then(|c| crate::monitors::price_num(&c[1]));
+                    let minutes = match s("interval").as_str() { "hourly" => 60, _ => 1440 };
+                    let name = if s("name").is_empty() { format!("Prices: {} products", urls.len()) } else { s("name") };
+                    let filters = serde_json::json!({"products": urls, "below": below});
+                    let id = st.create_full(&name, own, &urls[0], minutes, &filters)?;
+                    let m = st.get(&id).context("tracker vanished")?;
+                    let t0 = std::time::Instant::now();
+                    match crate::monitors::run_one(app, &m).await {
+                        Ok((d, tok)) => {
+                            st.finish_run(&id, &d, tok, t0.elapsed().as_millis() as u64, None);
+                            let stored = st.listings(&id, None, 25);
+                            let already: Vec<String> = below.map(|b| stored.iter().filter(|l| l["price"].as_str().and_then(crate::monitors::price_num).is_some_and(|p| p <= b)).map(|l| l["title"].as_str().unwrap_or("").chars().take(60).collect::<String>()).collect()).unwrap_or_default();
+                            let now: Vec<String> = stored.iter().map(|l| format!("- {} — {}{}", l["title"].as_str().unwrap_or("").chars().take(70).collect::<String>(), l["price"].as_str().unwrap_or(""), l["posted"].as_str().filter(|x| !x.is_empty()).map(|x| format!(" ({x})")).unwrap_or_default())).collect();
+                            Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: d.found > 0,
+                                summary: format!("Tracking {} of {} products {}; I'll tell you {}. Prices now:\n{}{}", d.found, urls.len(), if minutes == 60 { "every hour" } else { "once a day" },
+                                    below.map(|b| format!("when one drops to {b:.2} € or less")).unwrap_or_else(|| "when a price drops".into()), now.join("\n"),
+                                    if already.is_empty() { String::new() } else { format!("\nAlready at or below the target: {}.", already.join("; ")) }),
+                                dir: None, file: None, tokens: tok })
+                        }
+                        Err(e) => {
+                            st.finish_run(&id, &crate::monitors::Diff::default(), 0, t0.elapsed().as_millis() as u64, Some(&format!("{e:#}")));
+                            Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: false, summary: format!("Price tracker saved, but the first check failed: {e:#}. It retries on schedule."), dir: None, file: None, tokens: 0 })
+                        }
+                    }
+                }
+                "dataset_create" => {
+                    let st = crate::datasets::store().context("datasets unavailable")?;
+                    let own = request.split("\n\nContext").next().unwrap_or(request);
+                    // Planners sometimes describe the source in words ("scrape willhaben search + …").
+                    let raw_src = s("source").to_lowercase();
+                    // Explicit source words first; else what the arguments say (items to price → market).
+                    let has_items = a["items"].as_array().is_some_and(|x| !x.is_empty()) || !s("items").is_empty();
+                    let source = ["creators", "social", "market", "monitor", "scrape"].iter().find(|x| raw_src.split(|c: char| !c.is_alphanumeric()).any(|w| w == **x || w == x.trim_end_matches('s'))).map(|x| x.to_string())
+                        .unwrap_or_else(|| if has_items || raw_src.contains("price") || raw_src.contains("sold") { "market".into() } else if !s("brief").is_empty() && raw_src.contains("creator") { "creators".into() }
+                            else if !s("url").is_empty() { "scrape".into() } else if !s("brief").is_empty() { "creators".into() } else if !s("question").is_empty() { "social".into() } else { raw_src.clone() });
+                    let list = |k: &str| -> Vec<String> { a[k].as_array().map(|x| x.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()).unwrap_or_else(|| s(k).split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect()) };
+                    let (spec, key) = match source.as_str() {
+                        "scrape" => {
+                            if s("url").is_empty() { bail!("a scrape dataset needs the listing / search page URL"); }
+                            let fields = if list("fields").is_empty() { vec!["title".to_string(), "price".into(), "url".into()] } else { list("fields") };
+                            let key = if fields.iter().any(|f| f == "url") { "url".to_string() } else { fields[0].clone() };
+                            (serde_json::json!({"url": s("url"), "task": own, "fields": fields, "detail_fields": list("detail_fields"), "max_items": a["max_items"].as_u64().unwrap_or(200)}), key)
+                        }
+                        "creators" => (serde_json::json!({"site": s("site"), "brief": if s("brief").is_empty() { own.to_string() } else { s("brief") }, "followers": a["followers"], "min_avg_views": a["min_avg_views"]}), "handle".to_string()),
+                        "social" => (serde_json::json!({"site": s("site"), "question": if s("question").is_empty() { own.to_string() } else { s("question") }}), "id".to_string()),
+                        "market" => {
+                            let mut items = list("items");
+                            if items.is_empty() {
+                                // The planner described the items instead of listing them: name them from the request.
+                                let (txt, _) = crate::llm::complete_tier(app, crate::llm::Tier::Light, "List the products whose resale price the user wants tracked. Reply ONLY with JSON {\"items\": [\"exact product name (brand, model, generation)\", ...]}.", own, true, 600).await?;
+                                items = txt.find('{').and_then(|i| serde_json::from_str::<Value>(&txt[i..txt.rfind('}').map(|e| e + 1).unwrap_or(txt.len())]).ok())
+                                    .and_then(|j| j["items"].as_array().map(|x| x.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())).unwrap_or_default();
+                            }
+                            if items.is_empty() { bail!("a market dataset needs the items to price"); }
+                            (serde_json::json!({"items": items, "country": s("country")}), "id".to_string())
+                        }
+                        "monitor" => (serde_json::json!({"monitor": if s("monitor").is_empty() { own.to_string() } else { s("monitor") }}), "id".to_string()),
+                        other => bail!("dataset source must be scrape, creators, social, market or monitor, not {other:?}"),
+                    };
+                    let every = match s("every").to_lowercase().as_str() { "hourly" => 60, "weekly" => 7 * 1440, x if x.ends_with('h') => x.trim_end_matches('h').parse::<i64>().unwrap_or(24) * 60, _ => 1440 };
+                    let name = if s("name").is_empty() { own.chars().take(50).collect::<String>() } else { s("name") };
+                    let id = st.create(&name, own, &source, &spec, &key, every)?;
+                    let d = st.get(&id).context("dataset vanished")?;
+                    match crate::datasets::run(app, &d).await {
+                        Ok(note) => {
+                            st.finish(&id, &note, None);
+                            let files = d.files();
+                            Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true,
+                                summary: format!("Dataset \"{name}\" started: {note}. It runs again {} and adds / updates rows each time. Files: {}", match every { 60 => "every hour".to_string(), 1440 => "every day".into(), m => format!("every {} h", m / 60) }, files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>().join(", ")),
+                                dir: Some(d.dir().display().to_string()), file: Some(files[0].display().to_string()), tokens: 0 })
+                        }
+                        Err(e) => {
+                            st.finish(&id, "", Some(&format!("{e:#}")));
+                            Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: false, summary: format!("Dataset \"{name}\" saved, but the first run failed: {e:#}. It retries in 3 h."), dir: None, file: None, tokens: 0 })
+                        }
+                    }
+                }
+                "dataset_results" => {
+                    let st = crate::datasets::store().context("datasets unavailable")?;
+                    let d = st.find(&format!("{} {}", s("dataset"), request)).context("no matching dataset")?;
+                    let rows = st.rows(&d.id, false, 15);
+                    let lines: Vec<String> = rows.iter().map(|(k, v, _, _)| format!("- {}", v.as_object().map(|o| o.iter().filter(|(f, _)| !matches!(f.as_str(), "text" | "bio" | "desc")).take(5).map(|(f, x)| format!("{f}: {}", x.as_str().map(str::to_string).unwrap_or_else(|| x.to_string()).chars().take(60).collect::<String>())).collect::<Vec<_>>().join(", ")).unwrap_or_else(|| k.clone()))).collect();
+                    let files = d.files();
+                    Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true,
+                        summary: format!("{} ({} runs; last: {}{}). Files: {}\nNewest rows:\n{}", d.name, d.runs, d.last_note.clone().unwrap_or_default(), d.last_error.as_ref().map(|e| format!("; last error: {e}")).unwrap_or_default(), files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>().join(", "), lines.join("\n")),
+                        dir: Some(d.dir().display().to_string()), file: Some(files[0].display().to_string()), tokens: 0 })
+                }
+                "dataset_update" => {
+                    let st = crate::datasets::store().context("datasets unavailable")?;
+                    let d = st.find(&format!("{} {}", s("dataset"), request)).context("no matching dataset")?;
+                    let act = s("action").to_lowercase();
+                    let act = if act.contains("delete") || act.contains("remove") { "delete" } else if act.contains("pause") || act.contains("stop") { "pause" } else if act.contains("resume") || act.contains("start") { "resume" } else if act.contains("run") || act.contains("update") || act.contains("now") || act.contains("refresh") { "run" } else { act.as_str() }.to_string();
+                    if act == "run" {
+                        // "Update it now": run here and report, the schedule continues from now.
+                        let note = crate::datasets::run(app, &d).await;
+                        st.finish(&d.id, note.as_deref().unwrap_or(""), note.as_ref().err().map(|e| format!("{e:#}")).as_deref());
+                        let note = note?;
+                        return Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok: true, summary: format!("{} updated: {note}. Files: {}", d.name, d.files().iter().map(|f| f.display().to_string()).collect::<Vec<_>>().join(", ")),
+                            dir: Some(d.dir().display().to_string()), file: Some(d.files()[0].display().to_string()), tokens: 0 });
+                    }
+                    let ok = match act.as_str() {
+                        "pause" => st.set_active(&d.id, false),
+                        "resume" => st.set_active(&d.id, true),
+                        "delete" => st.delete(&d.id),
+                        other => bail!("unknown dataset action {other}"),
+                    };
+                    Ok(StepResult { status: String::new(), tool: step.tool.clone(), ok, summary: format!("{}: {act}", d.name), dir: None, file: None, tokens: 0 })
                 }
                 "monitor_list" => {
                     let st = crate::monitors::store().context("monitors unavailable")?;
@@ -1410,6 +1628,17 @@ async fn tool_sims(app: &AppState, reg: &Registry, request: &str) -> Option<Vec<
 
 /// Stage 2 of progressive disclosure: only now does the chosen tool's full schema /
 /// instructions enter a prompt. Built-in read tools keep the planner's args as they are.
+/// A social / market result as files: <kind>/<stamp>.md (the table) and .json (the data).
+fn write_result(data: &std::path::Path, kind: &str, md: &str, json: &Value) -> anyhow::Result<std::path::PathBuf> {
+    let dir = data.join("artifacts").join(kind);
+    std::fs::create_dir_all(&dir)?;
+    let stem = chrono::Local::now().format("%Y-%m-%d_%H%M%S").to_string();
+    std::fs::write(dir.join(format!("{stem}.json")), serde_json::to_string_pretty(json)?)?;
+    let file = dir.join(format!("{stem}.md"));
+    std::fs::write(&file, md)?;
+    Ok(file)
+}
+
 /// Earlier steps' results as facts a later step may draw on.
 fn facts_of(results: &[StepResult]) -> String {
     results.iter().filter(|r| r.ok && r.status != "input_required").map(|r| format!("[{}] {}", r.tool, r.summary)).collect::<Vec<_>>().join("\n").chars().take(3000).collect()

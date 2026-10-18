@@ -180,6 +180,7 @@ impl Tasks {
         // Saved-search monitors (monitors.rs): their alerts become task records.
         if background() {
             crate::monitors::spawn(app.clone(), log.clone());
+            crate::datasets::spawn(app.clone(), log.clone());
         }
         // The friend's daily check-in (friend.rs): one small thing, at a quiet moment.
         if background() {

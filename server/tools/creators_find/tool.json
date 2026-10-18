@@ -1,0 +1,17 @@
+{
+ "name": "creators_find",
+ "summary": "Find creators / influencers for outreach or collaborations on TikTok, X or Instagram ('such mir Fitness-Influencer', 'find creators for …'), with filters: niche, follower range, average views per video, language / city; ranked, with follower and view / like counts, last post, contact. Not for B2B decision makers (leads_find).",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "brief": "string: niche, audience / language / place and purpose in the user's words",
+  "site": "tiktok (default) | x | instagram",
+  "followers": "[min, max] (optional)",
+  "min_avg_views": "int (optional, TikTok)",
+  "count": "int: how many (default 30)"
+ },
+ "runner": "builtin"
+}

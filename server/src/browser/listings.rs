@@ -70,7 +70,9 @@ fn to_listings(items: &Value, cards: &[Value]) -> Vec<Listing> {
     let card_urls: std::collections::HashMap<String, String> = cards.iter().map(|c| (c["id"].as_str().unwrap_or("").to_string(), c["url"].as_str().unwrap_or("").to_string())).collect();
     items.as_array().into_iter().flatten().filter_map(|i| {
         let s = |k: &str| i[k].as_str().map(|x| x.split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default();
-        let mut l = Listing { id: s("id"), url: s("url"), title: s("title"), price: s("price"), location: s("location"), posted: s("posted") };
+        // desc: the description (embedded data) or the card's text, for the monitor's judge.
+        let desc = if i["desc"].is_string() { s("desc") } else { s("text") }.chars().take(240).collect();
+        let mut l = Listing { id: s("id"), url: s("url"), title: s("title"), price: s("price"), location: s("location"), posted: s("posted"), desc };
         // The site id, else the id in the URL; ids the cards know keep their clean URL.
         if l.id.is_empty() || l.id.len() > 64 {
             l.id = id_from_url(&l.url).unwrap_or_default();
@@ -82,10 +84,33 @@ fn to_listings(items: &Value, cards: &[Value]) -> Vec<Listing> {
     }).collect()
 }
 
+/// Built-in plan for willhaben (listings lab L2): the results array in `__NEXT_DATA__` is fixed,
+/// the learned map was the same in every run, and an empty search shows promoted ads that the
+/// cards plan would read as listings (a €90 coat on a free-only search).
+pub fn builtin_plan(url: &str) -> Option<Value> {
+    url.contains("willhaben.at/iad/").then(|| json!({
+        "kind": "embed", "item": "/d/", "known": true,
+        "path": "#__NEXT_DATA__.props.pageProps.searchResult.advertSummaryList.advertSummary",
+        "map": {"id": "id", "url": "attributes.attribute[name=SEO_URL].values.0", "title": "attributes.attribute[name=HEADING].values.0",
+                "price": "attributes.attribute[name=PRICE_FOR_DISPLAY].values.0", "location": "attributes.attribute[name=LOCATION].values.0",
+                "posted": "attributes.attribute[name=PUBLISHED_String].values.0", "desc": "attributes.attribute[name=BODY_DYN].values.0"},
+        "url_prefix": "https://www.willhaben.at/iad/",
+    }))
+}
+
 /// Learns a plan on the loaded page. Returns (plan, tokens).
 pub async fn learn(app: &AppState, tab: &Tab, model: Provider) -> anyhow::Result<(Value, u64)> {
+    let here = tab.eval("location.href").await.ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default();
+    if let Some(p) = builtin_plan(&here) {
+        return Ok((p, 0));
+    }
     let key = tab.eval(ITEMKEY_JS).await?;
     let Some(item) = key["item"].as_str().map(str::to_string) else { bail!("couldn't find listings on this page") };
+    // A known marketplace with 0-2 results (itemkey.js knows its item path): a valid, tiny
+    // result. Its cards plan is rule-based (0 tokens) and an empty page stays empty.
+    if key["known"] == true {
+        return Ok((json!({"kind": "cards", "item": item, "known": true}), 0));
+    }
     let cs = cards(tab, &item).await;
     let ids: Vec<Value> = cs.iter().map(|c| c["id"].clone()).collect();
     let mut tokens = 0u64;
@@ -150,10 +175,12 @@ async fn apply_embed(tab: &Tab, plan: &Value) -> anyhow::Result<Value> {
 pub async fn apply(tab: &Tab, plan: &Value) -> anyhow::Result<Vec<Listing>> {
     let item = plan["item"].as_str().unwrap_or("/");
     let cs = cards(tab, item).await;
+    let known = plan["known"] == true;
     let raw = match plan["kind"].as_str() {
         Some("embed") => apply_embed(tab, plan).await?,
+        Some("cards") if known && cs.is_empty() => Value::Array(vec![]),
         Some("cards") => {
-            if !cards_ok(&cs) {
+            if !known && !cards_ok(&cs) {
                 bail!("cards no longer read well");
             }
             // Where nearly every listing shows a price, price-less cards are promos ("Amazon Visa",
@@ -165,6 +192,11 @@ pub async fn apply(tab: &Tab, plan: &Value) -> anyhow::Result<Vec<Listing>> {
         _ => bail!("unknown plan"),
     };
     let items = to_listings(&raw, &cs);
+    // Known sites: an empty result is a valid run (a rare item, nothing new). willhaben's embed
+    // plan reads only the results array, so the promoted cards on an empty page don't count.
+    if known && (items.is_empty() || plan["kind"] == "embed") {
+        return Ok(items);
+    }
     // The page links to listings the plan didn't see: markup or data layout changed.
     if items.is_empty() || (cs.len() >= 5 && items.len() * 2 < cs.len().min(20)) {
         bail!("plan found {} of {} listings", items.len(), cs.len());

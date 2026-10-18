@@ -1,0 +1,26 @@
+{
+ "name": "dataset_create",
+ "summary": "A long-running collection that runs every day (or hourly / weekly), adds new rows and refreshes the existing ones, kept as an Excel / CSV / Markdown table: competitor listings or prices over weeks, a growing creator list, daily social sentiment, a price history ('collect … every day into a table', 'build me a spreadsheet of … and keep it updated', 'jeden Tag ergänzen'). For a one-off list use scrape; for alerts on new listings use monitor_create.",
+ "kinds": [
+  "research",
+  "browser",
+  "documents"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "name": "string: short label",
+  "source": "scrape | creators | social | market | monitor",
+  "url": "string: listing / search page (scrape)",
+  "fields": "string[]: columns to collect (scrape; include url)",
+  "detail_fields": "string[]: extra columns read from each row's own page, a slice per run (scrape, optional)",
+  "site": "tiktok | x | instagram (creators, social)",
+  "brief": "string (creators)",
+  "followers": "[min, max] (creators, optional)",
+  "question": "string (social)",
+  "items": "string[]: items to price daily (market)",
+  "monitor": "string: which monitor or price tracker (monitor)",
+  "every": "daily (default) | hourly | weekly | <n>h"
+ },
+ "runner": "builtin"
+}

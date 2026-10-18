@@ -14,5 +14,6 @@ pub mod park;
 pub mod reddit;
 pub mod research;
 pub mod scrape;
+pub mod sessions;
 pub mod search;
 pub mod workspace;

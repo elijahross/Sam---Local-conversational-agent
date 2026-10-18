@@ -135,7 +135,11 @@ pub const GROUPS_JS: &str = r#"(() => {
 
 /// Applies a recipe on the current page.
 pub const APPLY_JS: &str = r#"(r => {
-  const val = (root, f) => {
+  // Money in code, never by the model's regex (price-tracking lab L4: the recipe's
+  // "([0-9.,]+\s*€)" missed every eBay price, which reads "EUR 234,99").
+  const MONEY = /(?:€|EUR|US\s?\$|\$|£|CHF)\s?\d[\d.,']*|\d[\d.,']*\s?(?:€|EUR|CHF)/;
+  const priceLike = (k) => /price|preis|cost|kosten|betrag|amount/i.test(k || '');
+  const val = (root, f, key) => {
     if (!f || (!f.sel && !f.label)) return null;
     let e = null;
     if (f.label) {
@@ -154,6 +158,7 @@ pub const APPLY_JS: &str = r#"(r => {
     v = (v || '').replace(/\s+/g, ' ').trim();
     // Models often write ([0-9.,]+) and drop "45K"/"1,2 Mio.": let numeric groups take a suffix.
     const fixRe = (re) => re.replace(/\((\[0-9\.,\]\+|\[\\d\.,\]\+|\[\\d,\.\]\+|\\d\+)\)/g, '($1(?:\\s?(?:[KkMm]|Mio\\.?|Tsd\\.?))?)');
+    if (priceLike(key)) { const m = v.match(MONEY); if (m) return m[0].trim(); }
     if (f.re) { const m = v.match(new RegExp(fixRe(f.re))); v = m ? (m[1] || m[0]) : ''; }
     // "13.8K" / "1,2 Mio." → integer; plain numbers stay as written.
     if (/^https?%3A/i.test(v)) { try { v = decodeURIComponent(v); } catch (_) {} }
@@ -163,8 +168,56 @@ pub const APPLY_JS: &str = r#"(r => {
     if (km) { const n = parseFloat(km[1].replace(/,(?=\d{1,2}$)/, '.').replace(/,/g, '')); v = String(Math.round(n * (/^(M|Mio)/.test(km[2]) ? 1e6 : 1e3))); }
     return v || null;
   };
-  return [...document.querySelectorAll(r.item)].map(e => { const o = {}; for (const [k, f] of Object.entries(r.fields)) o[k] = val(e, f); return o; });
+  return [...document.querySelectorAll(r.item)].map(e => { const o = {}; for (const [k, f] of Object.entries(r.fields)) o[k] = val(e, f, k); return o; });
 })"#;
+
+/// Offer data a product page states itself: schema.org Product / Offer JSON-LD (eBay and many
+/// shops), plus two known gaps (lab L4): Amazon's Buy Box seller row and eBay's "N verkauft".
+/// → {price, currency, availability, seller, sold} (missing values null). 0 tokens.
+pub const OFFER_JS: &str = r#"(() => {
+  const out = {price: null, currency: null, availability: null, seller: null, sold: null};
+  for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+    let j; try { j = JSON.parse(s.textContent); } catch (_) { continue; }
+    for (const x of [].concat(j['@graph'] || j)) {
+      if (!x || !/Product/.test([].concat(x['@type']).join(' '))) continue;
+      const o = [].concat(x.offers || [])[0] || {};
+      const oo = o.offers ? [].concat(o.offers)[0] : o;
+      out.price = out.price || oo.price || o.lowPrice || null;
+      out.currency = out.currency || oo.priceCurrency || o.priceCurrency || null;
+      out.availability = out.availability || (oo.availability ? String(oo.availability).replace(/^.*\//, '') : null);
+      out.seller = out.seller || (oo.seller && oo.seller.name) || null;
+    }
+  }
+  const t = (sel) => { const e = document.querySelector(sel); return e ? (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim() : null; };
+  if (/amazon\./.test(location.host)) out.seller = out.seller || t('[offer-display-feature-name="desktop-merchant-info"] .offer-display-feature-text') || t('#sellerProfileTriggerId');
+  if (/ebay\./.test(location.host)) {
+    const m = (document.body.innerText || '').match(/(\d[\d.]*)\s+verkauft/); if (m) out.sold = m[1].replace(/\./g, '');
+    out.seller = out.seller || t('.x-sellercard-atf__info__about-seller a') || t('[data-testid="str-title"] a');
+  }
+  return out;
+})()"#;
+
+/// Fills a details item from the page's own offer data: the stated price wins over the recipe
+/// (exact, never a misparse); availability / seller / sold only fill gaps.
+fn merge_offer(it: &mut Value, offer: &Value, schema: &[String]) {
+    let like = |f: &str, words: &[&str]| words.iter().any(|w| f.to_lowercase().contains(w));
+    for f in schema {
+        let v = if like(f, &["price", "preis", "cost", "kosten"]) {
+            offer["price"].as_str().map(|p| p.to_string()).or_else(|| offer["price"].as_f64().map(|p| p.to_string())).map(|p| format!("{p} {}", offer["currency"].as_str().unwrap_or("")).trim().to_string())
+        } else if it[f.as_str()].is_null() && like(f, &["availab", "stock", "lager", "verfügbar"]) {
+            offer["availability"].as_str().map(str::to_string)
+        } else if it[f.as_str()].is_null() && like(f, &["seller", "verkäufer", "merchant", "buy_box", "buybox"]) {
+            offer["seller"].as_str().map(str::to_string)
+        } else if it[f.as_str()].is_null() && like(f, &["sold", "verkauft"]) {
+            offer["sold"].as_str().map(str::to_string)
+        } else {
+            None
+        };
+        if let Some(v) = v.filter(|v| !v.is_empty()) {
+            it[f.as_str()] = json!(v);
+        }
+    }
+}
 
 /// Scroll the nearest scrollable ancestor of the items (dialogs, panels), else the window.
 /// Returns false when nothing could scroll further.
@@ -559,6 +612,9 @@ pub async fn run_details(app: &AppState, tab: &Tab, task: &str, urls: &[String],
         }
         let r = recipe.as_ref().unwrap();
         let mut it = apply(tab, r).await?.into_iter().next().unwrap_or_else(|| json!({}));
+        if let Ok(offer) = tab.eval(OFFER_JS).await {
+            merge_offer(&mut it, &offer, schema);
+        }
         it["url"] = json!(url);
         items.push(it);
     }
@@ -629,4 +685,17 @@ pub async fn run_details(app: &AppState, tab: &Tab, task: &str, urls: &[String],
     std::fs::write(dir.join("run.json"), serde_json::to_string_pretty(&report)?)?;
     let _ = catalog.add("dataset", &format!("{task} ({} pages)", report.items), Some(&first_url), Some(task), &dir.join("items.csv"));
     Ok(report)
+}
+
+#[cfg(test)]
+mod offer_tests {
+    #[test]
+    fn offer_fills_price_and_gaps() {
+        let mut it = serde_json::json!({"price": null, "availability": null, "seller": "kept"});
+        let offer = serde_json::json!({"price": "234.99", "currency": "EUR", "availability": "InStock", "seller": "x", "sold": null});
+        super::merge_offer(&mut it, &offer, &["price".into(), "availability".into(), "seller".into()]);
+        assert_eq!(it["price"], "234.99 EUR");
+        assert_eq!(it["availability"], "InStock");
+        assert_eq!(it["seller"], "kept");
+    }
 }

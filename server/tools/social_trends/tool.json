@@ -1,0 +1,15 @@
+{
+ "name": "social_trends",
+ "summary": "What is trending or rising right now: TikTok hashtags and sounds in a niche, trending topics on X, Amazon.de Movers & Shakers ('was ist gerade im Trend bei …', 'what's trending on TikTok in …', 'rising products on Amazon').",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "site": "tiktok (default) | x | amazon",
+  "niche": "string: industry / topic (TikTok)",
+  "country": "string: country (e.g. AT, DE)"
+ },
+ "runner": "builtin"
+}

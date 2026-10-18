@@ -1,0 +1,15 @@
+{
+ "name": "dataset_update",
+ "summary": "Update / refresh an existing long-running dataset (spreadsheet) right now, or pause, resume or delete it ('update my creator spreadsheet now', 'refresh the competitor table', 'stop the dataset').",
+ "kinds": [
+  "research",
+  "documents"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "dataset": "string: which dataset",
+  "action": "run (update now) | pause | resume | delete"
+ },
+ "runner": "builtin"
+}

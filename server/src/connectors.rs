@@ -47,6 +47,11 @@ const BUILTIN: &[(&str, &str, &str, &str, &str, &[&str])] = &[
     ("slack", "Slack", "number", "Email & messaging", "Read channels and DMs and reply in Sam's own Slack session (sign in once; the Slack app itself can't be read in the background).", &[]),
     ("reddit", "Reddit", "bubble.left.and.text.bubble.right", "Web", "What people say: threads and comments for pains, opinions and idea validation, read in Sam's own Reddit session (sign in once).", &[]),
     ("linkedin", "LinkedIn", "person.2", "Web", "Lead monitors on LinkedIn searches (people, jobs, companies), read in Sam's own LinkedIn session (sign in once). Read-only, a few checks a day.", &[]),
+    ("ebay", "eBay", "cart", "Web", "Market prices from eBay sold listings and new-listing alerts, read in Sam's own eBay session (sign in once: sold prices need a login).", &["market_analysis"]),
+    ("x", "X (Twitter)", "bubble.left", "Web", "What people say on X about a topic, read in Sam's own X session (sign in once; a secondary account is recommended). At most 150 requests a day.", &["social_research", "social_profile", "creators_find", "social_trends"]),
+    ("tiktok", "TikTok", "music.note.tv", "Web", "Creators for outreach and account analyses on TikTok, read in Sam's own TikTok session (sign in once; a secondary account is recommended). At most 400 requests a day.", &["creators_find", "social_profile", "social_research", "social_trends"]),
+    ("facebook", "Facebook", "person.3", "Web", "New-listing alerts on Facebook Marketplace, read in Sam's own Facebook session (sign in once; a secondary account is recommended). The Ad Library needs no login.", &[]),
+    ("instagram", "Instagram", "camera", "Web", "Creators and account analyses on Instagram, read in Sam's own session (sign in once; a secondary account is recommended). At most 150 requests a day.", &["social_profile", "creators_find"]),
     ("gmail", "Gmail (web)", "envelope.badge", "Email & messaging", "Reply in Gmail threads in Sam's browser when the account isn't in Mail.app (sign in once).", &[]),
     ("web", "Web research & browsing", "globe", "Web", "Search, read pages, collect lists and do website tasks (comments, forms, checkout) in Sam's off-screen browser.", &["research", "scrape", "details", "web_fetch", "browse", "web_task"]),
     ("logins", "Website logins", "key", "Web", "Logins Sam may use in its browser, stored in the macOS Keychain (password and optional 2FA seed).", &[]),
@@ -123,9 +128,9 @@ pub fn list(files: &crate::files::Files) -> Value {
             "whatsapp" | "telegram" | "slack" if crate::native_chat::mode(id) == "app" => {
                 ("connected", "Using your installed app".into(), vec!["chat_via"])
             }
-            "whatsapp" | "telegram" | "slack" | "gmail" | "reddit" | "linkedin" => {
-                let via = if matches!(*id, "gmail" | "reddit" | "linkedin") { vec![] } else { vec!["chat_via"] };
-                let dom = match *id { "reddit" => "reddit.com", "linkedin" => "linkedin.com", "gmail" => "google.com", "whatsapp" => "whatsapp.com", "telegram" => "telegram.org", "slack" => "slack.com", _ => "" };
+            "whatsapp" | "telegram" | "slack" | "gmail" | "reddit" | "linkedin" | "ebay" | "x" | "tiktok" | "instagram" | "facebook" => {
+                let via = if matches!(*id, "whatsapp" | "telegram" | "slack") { vec!["chat_via"] } else { vec![] };
+                let dom = match *id { "reddit" => "reddit.com", "linkedin" => "linkedin.com", "gmail" => "google.com", "whatsapp" => "whatsapp.com", "telegram" => "telegram.org", "slack" => "slack.com", "ebay" => "ebay.de", "x" => "x.com", "tiktok" => "tiktok.com", "instagram" => "instagram.com", "facebook" => "facebook.com", _ => "" };
                 let hint = if !dom.is_empty() && crate::secrets::has_login(dom) { " · saved login" } else { "" };
                 match st["linked"][id].as_str() {
                     Some(t) => ("connected", format!("Sam's browser · linked {}{hint}", t.get(..10).unwrap_or(t)), [via, vec!["link"]].concat()),
@@ -342,6 +347,7 @@ pub async fn action(app: &crate::AppState, files: &crate::files::Files, id: &str
                 "gmail" => crate::env_or("GMAIL_URL", "https://mail.google.com/mail/u/0/"),
                 "reddit" => crate::browser::reddit::HOME.to_string(),
                 "linkedin" => crate::browser::linkedin::HOME.to_string(),
+                s if crate::browser::sessions::site(s).is_some() => crate::browser::sessions::site(s).map(|x| x.home.to_string()).unwrap_or_default(),
                 s => crate::browser::chat::site_url(s).context("unknown site")?,
             };
             let data = crate::thinker::data_dir();
@@ -361,6 +367,7 @@ pub async fn action(app: &crate::AppState, files: &crate::files::Files, id: &str
                     "gmail" => crate::browser::gmail::ready(&tab, None).await.map(|_| "linked".to_string()),
                     "reddit" => crate::browser::reddit::ready(&tab, None).await.map(|u| format!("u/{u}")),
                     "linkedin" => crate::browser::linkedin::ready(&tab, None).await.map(|_| "linked".to_string()),
+                    s if crate::browser::sessions::site(s).is_some() => crate::browser::sessions::ready(&tab, s, None).await.map(|_| "linked".to_string()),
                     _ => crate::browser::chat::ready(&tab, &site2, None).await.map(|_| "linked".to_string()),
                 };
                 if r.is_ok() {

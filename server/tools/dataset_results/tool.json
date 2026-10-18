@@ -1,0 +1,13 @@
+{
+ "name": "dataset_results",
+ "summary": "What a long-running dataset has collected so far: row count, last run, newest rows and the file paths (xlsx / csv / md). Use for 'show me the creator spreadsheet', 'what's in my competitor table'.",
+ "kinds": [
+  "research",
+  "documents"
+ ],
+ "effects": "read",
+ "args": {
+  "dataset": "string: which dataset (words from its name)"
+ },
+ "runner": "builtin"
+}

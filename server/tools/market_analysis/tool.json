@@ -1,0 +1,15 @@
+{
+ "name": "market_analysis",
+ "summary": "What a USED / second-hand item really sells for (resale value; 'was ist mein … noch wert', Gebrauchtpreis, Wiederverkaufswert, 'was zahlt man gebraucht für …'): eBay sold prices (median, typical range, number of sales) plus asking prices on willhaben / Kleinanzeigen. Use for 'what is my … worth', 'what do people pay for a used …', 'how much should I ask for my …'. Not for new retail prices (research).",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "item": "string: the exact item (brand, model, generation, size) — no price or place",
+  "condition": "used | any (default used)",
+  "country": "at | de (default at): which classifieds site gives asking prices"
+ },
+ "runner": "builtin"
+}

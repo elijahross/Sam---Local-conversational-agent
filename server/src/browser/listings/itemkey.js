@@ -17,5 +17,11 @@
     }
   }
   const ranked = Object.entries(votes).map(([s, ids]) => [s, ids.size - (against[s] || 0) * 0.5, ids.size]).sort((a, b) => b[1] - a[1]);
+  // Known marketplaces: their listing path is fixed, so 0-2 results are a valid (empty or tiny)
+  // result, not "no listings found" (rare-item monitors: a free trench coat in Vienna, lab L2).
+  const KNOWN = {'willhaben.at': 'd', 'kleinanzeigen.de': 's-anzeige', 'ebay.de': 'itm', 'ebay.at': 'itm', 'ebay.com': 'itm', 'amazon.de': 'dp', 'amazon.com': 'dp', 'facebook.com': 'item'};
+  const known = KNOWN[(window.__samHost || host)];
+  if (known && !(ranked.length && ranked[0][2] >= 3 && ranked[0][0] !== known && ranked[0][2] > ((votes[known] || new Set()).size) * 3))
+    return {item: '/' + known + '/', ids: (votes[known] || new Set()).size, known: true};
   return ranked.length && ranked[0][2] >= 3 ? {item: '/' + ranked[0][0] + '/', ids: ranked[0][2], runner_up: ranked.slice(1, 3)} : null;
 })()

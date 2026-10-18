@@ -1,7 +1,10 @@
 {
  "name": "monitor_results",
- "summary": "Listings a monitor has collected (stored, no new scraping): what's new since a time, or everything it has seen. Use for 'anything new on my willhaben search?', 'show the flats from last week', or to build on earlier results.",
- "kinds": ["research", "browser"],
+ "summary": "What a saved-search monitor has FOUND (its stored listings): what's new since a time, or everything it has seen. Use for 'anything new on my willhaben search?', 'what did the monitor find', 'show the flats from last week'. Not for the list of monitors themselves (monitor_list).",
+ "kinds": [
+  "research",
+  "browser"
+ ],
  "effects": "read",
  "args": {
   "monitor": "string: which monitor (its name or words from it)",

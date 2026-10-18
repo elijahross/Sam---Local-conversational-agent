@@ -71,6 +71,9 @@ pub struct Listing {
     pub location: String,
     #[serde(default)]
     pub posted: String,
+    /// Description or card text (not stored): what the judge reads besides the title.
+    #[serde(default, skip_serializing)]
+    pub desc: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -108,6 +111,8 @@ pub struct Diff {
     /// (listing, old price) for listings whose price changed.
     pub changed: Vec<(Listing, String)>,
     pub baseline: bool,
+    /// Judged monitors: how many of the judged listings match (None: not judged).
+    pub matched: Option<usize>,
 }
 
 /// "€ 1.200" / "1.238 €" / "EUR 886,19" / "$20.00" → number (German and English separators).
@@ -185,6 +190,8 @@ impl Store {
         db.execute_batch(SCHEMA)?;
         // Added after the first release: price bounds etc. ({"min": n, "max": n}).
         let _ = db.execute("ALTER TABLE monitors ADD COLUMN filters TEXT", []);
+        // Judged monitors: 1 = matches the request, 0 = the judge rejected it, NULL = not judged.
+        let _ = db.execute("ALTER TABLE listings ADD COLUMN matched INTEGER", []);
         Ok(Self { db: Mutex::new(db) })
     }
 
@@ -229,7 +236,7 @@ impl Store {
         for m in &mut ms {
             m.listings = db.query_row("SELECT COUNT(*) FROM listings WHERE monitor = ?1", [&m.id], |x| x.get(0)).unwrap_or(0);
             // The baseline run's listings aren't "new".
-            m.new_24h = db.query_row("SELECT COUNT(*) FROM listings WHERE monitor = ?1 AND first_seen >= ?2 AND baseline = 0", params![m.id, day], |x| x.get(0)).unwrap_or(0);
+            m.new_24h = db.query_row("SELECT COUNT(*) FROM listings WHERE monitor = ?1 AND first_seen >= ?2 AND baseline = 0 AND COALESCE(matched, 1) = 1", params![m.id, day], |x| x.get(0)).unwrap_or(0);
         }
         ms
     }
@@ -277,6 +284,24 @@ impl Store {
             let _ = db.execute(&format!("DELETE FROM {t} WHERE monitor = ?1"), [id]);
         }
         db.execute("DELETE FROM monitors WHERE id = ?1", [id]).map(|n| n > 0).unwrap_or(false)
+    }
+
+    /// Stores the judge's verdicts for a monitor's listings.
+    pub fn set_matched(&self, id: &str, verdicts: &[(String, bool)]) {
+        let mut db = self.db.lock().unwrap();
+        let Ok(tx) = db.transaction() else { return };
+        for (item, ok) in verdicts {
+            let _ = tx.execute("UPDATE listings SET matched = ?3 WHERE monitor = ?1 AND item = ?2", params![id, item, *ok as i64]);
+        }
+        let _ = tx.commit();
+    }
+
+    /// A monitor over several search URLs with its filters ({"min", "max", "words", "urls",
+    /// "city", "judge"}); `url` is the main search.
+    pub fn create_full(&self, name: &str, request: &str, url: &str, interval_min: i64, filters: &Value) -> anyhow::Result<String> {
+        let id = self.create_with(name, request, url, interval_min, None, None, &[])?;
+        let _ = self.db.lock().unwrap().execute("UPDATE monitors SET filters = ?2 WHERE id = ?1", params![id, filters.to_string()]);
+        Ok(id)
     }
 
     pub fn save_plan(&self, id: &str, plan: &Value) {
@@ -364,7 +389,7 @@ impl Store {
     /// Stored listings, newest first; `since` (ms) limits to first seen after it.
     pub fn listings(&self, id: &str, since: Option<i64>, limit: usize) -> Vec<Value> {
         let db = self.db.lock().unwrap();
-        let Ok(mut st) = db.prepare("SELECT item, url, title, price, location, posted, first_seen, last_seen, seen_runs, baseline FROM listings WHERE monitor = ?1 AND first_seen >= ?2 ORDER BY first_seen DESC, rowid LIMIT ?3") else { return vec![] };
+        let Ok(mut st) = db.prepare("SELECT item, url, title, price, location, posted, first_seen, last_seen, seen_runs, baseline FROM listings WHERE monitor = ?1 AND first_seen >= ?2 AND COALESCE(matched, 1) = 1 ORDER BY first_seen DESC, rowid LIMIT ?3") else { return vec![] };
         st.query_map(params![id, since.unwrap_or(0), limit as i64], |x| {
             let item: String = x.get(0)?;
             let fs: i64 = x.get(6)?;
@@ -473,8 +498,33 @@ pub fn store() -> Option<std::sync::Arc<Store>> {
     STORE.get_or_init(|| Store::open(&crate::thinker::data_dir()).map_err(|e| tracing::warn!("monitors unavailable: {e:#}")).ok().map(std::sync::Arc::new)).clone()
 }
 
-/// One run: load the saved search, apply the plan (learn it first / again if needed), store and
-/// diff. Returns the diff and tokens spent.
+/// The search URLs of a monitor: its main URL plus the keyword-expansion URLs (filters.urls).
+pub fn urls_of(m: &Monitor) -> Vec<String> {
+    let mut u = vec![m.url.clone()];
+    for x in m.filters["urls"].as_array().into_iter().flatten().filter_map(|v| v.as_str()) {
+        if !u.iter().any(|y| y == x) {
+            u.push(x.to_string());
+        }
+    }
+    u
+}
+
+/// The stored plan for one of the monitor's URLs: plans are kept per URL ({"by_url": {..}}); an
+/// older monitor's plain plan belongs to its main URL. willhaben always uses the built-in plan.
+fn plan_for(m: &Monitor, url: &str) -> Option<Value> {
+    if let Some(p) = crate::browser::listings::builtin_plan(url) {
+        return Some(p);
+    }
+    let p = m.plan.as_ref()?;
+    match p.get("by_url") {
+        Some(by) => by.get(url).cloned(),
+        None => (url == m.url).then(|| p.clone()),
+    }
+}
+
+/// One run: load every search URL of the monitor, apply its plan (learn it first / again if
+/// needed), merge, apply the code rules, store and diff, then let the judge decide which new
+/// listings match (monitors with `filters.judge`). Returns the diff and tokens spent.
 pub async fn run_one(app: &crate::AppState, m: &Monitor) -> anyhow::Result<(Diff, u64)> {
     use crate::browser::{cdp::{Chrome, Visibility}, listings};
     static RUNNING: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
@@ -494,7 +544,7 @@ pub async fn run_one(app: &crate::AppState, m: &Monitor) -> anyhow::Result<(Diff
     // The stored plan may be newer than `m` (learned by a run that just finished).
     let m = &st.get(&m.id).unwrap_or_else(|| m.clone());
     // Signed-in sites (LinkedIn) read in the accounts profile; everything else in the background one.
-    let signed = crate::browser::linkedin::is_linkedin(&m.url);
+    let signed = crate::browser::linkedin::is_linkedin(&m.url) || m.url.contains("facebook.com/marketplace");
     let screen = if signed { crate::thinker::accounts_screen() } else { crate::config::env_num("BG_SCREEN", 1u16) };
     let chrome = Chrome::launch(&crate::thinker::data_dir(), screen, Visibility::Offscreen).await?;
     let tab = chrome.new_tab().await?;
@@ -507,39 +557,240 @@ pub async fn run_one(app: &crate::AppState, m: &Monitor) -> anyhow::Result<(Diff
             // People searches: new matching people (slug = id), paced like all LinkedIn views.
             if m.url.contains("/search/results/people") {
                 let people = crate::browser::linkedin::search_page(&tab, &m.url).await?;
-                let items: Vec<Listing> = people.into_iter().map(|p| Listing { id: p.slug, url: p.url, title: format!("{} — {}", p.name, p.headline), price: String::new(), location: p.location, posted: String::new() }).collect();
+                let items: Vec<Listing> = people.into_iter().map(|p| Listing { id: p.slug, url: p.url, title: format!("{} — {}", p.name, p.headline), location: p.location, ..Default::default() }).collect();
                 return Ok::<_, anyhow::Error>((st.apply(&m.id, &items), 0));
             }
         }
-        listings::load(&tab, &m.url).await?;
-        let mut tokens = 0u64;
-        let items = match m.plan.as_ref().map(|p| (p, p.clone())) {
-            Some((_, p)) => match listings::apply(&tab, &p).await {
-                Ok(items) => items,
-                Err(e) => {
-                    tracing::info!(monitor = m.id, "plan stale ({e:#}); re-learning");
-                    let (p, t) = listings::learn(app, &tab, app.cfg.provider).await?;
-                    tokens += t;
-                    st.save_plan(&m.id, &p);
-                    listings::apply(&tab, &p).await?
+        // Price trackers (price_track): each product page is one "listing" whose price is
+        // re-read every run; Store::apply records the history and reports changes.
+        if let Some(products) = m.filters["products"].as_array() {
+            let mut items = vec![];
+            for (i, p) in products.iter().filter_map(|p| p.as_str()).enumerate() {
+                if i > 0 {
+                    tokio::time::sleep(std::time::Duration::from_millis(5000 + (now() % 5000) as u64)).await;
                 }
-            },
-            None => {
-                let (p, t) = listings::learn(app, &tab, app.cfg.provider).await?;
-                tokens += t;
-                st.save_plan(&m.id, &p);
-                listings::apply(&tab, &p).await?
+                match product(&tab, p).await {
+                    Ok(l) => items.push(l),
+                    // A bot check on one product: skip it today, never ask the user from a schedule.
+                    Err(e) => tracing::info!(monitor = m.id, url = p, "price check skipped: {e:#}"),
+                }
             }
-        };
+            if items.is_empty() {
+                anyhow::bail!("no product page could be read this time");
+            }
+            return Ok((st.apply(&m.id, &items), 0));
+        }
+        if m.url.contains("facebook.com/marketplace") {
+            crate::browser::sessions::check("facebook")?;
+            crate::browser::sessions::take("facebook", urls_of(m).len() as u32)?;
+            if !tab.has_cookie("https://www.facebook.com/", "c_user").await {
+                anyhow::bail!("Facebook isn't signed in: Connectors › Facebook › Link");
+            }
+        }
+        let mut tokens = 0u64;
+        let mut per_url: Vec<Vec<Listing>> = vec![];
+        let mut plans = serde_json::Map::new();
+        let mut errors = vec![];
+        for (i, url) in urls_of(m).iter().enumerate() {
+            if i > 0 {
+                // Same site, several searches: a short pause between page loads.
+                tokio::time::sleep(std::time::Duration::from_millis(2500 + (now() % 2500) as u64)).await;
+            }
+            let got = async {
+                listings::load(&tab, url).await?;
+                let mut t = 0u64;
+                let items = match plan_for(m, url) {
+                    Some(p) => match listings::apply(&tab, &p).await {
+                        Ok(items) => (items, p),
+                        Err(e) => {
+                            tracing::info!(monitor = m.id, url, "plan stale ({e:#}); re-learning");
+                            let (p, tk) = listings::learn(app, &tab, app.cfg.provider).await?;
+                            t += tk;
+                            (listings::apply(&tab, &p).await?, p)
+                        }
+                    },
+                    None => {
+                        let (p, tk) = listings::learn(app, &tab, app.cfg.provider).await?;
+                        t += tk;
+                        (listings::apply(&tab, &p).await?, p)
+                    }
+                };
+                Ok::<_, anyhow::Error>((items, t))
+            }
+            .await;
+            match got {
+                Ok(((items, p), t)) => {
+                    tokens += t;
+                    plans.insert(url.clone(), p);
+                    per_url.push(items);
+                }
+                // One failing search doesn't sink the others; all failing does.
+                Err(e) => errors.push(format!("{e:#}")),
+            }
+        }
+        if per_url.is_empty() {
+            anyhow::bail!("{}", errors.first().cloned().unwrap_or_else(|| "no results page".into()));
+        }
+        st.save_plan(&m.id, &json!({"by_url": plans}));
+        // Interleave the searches so "near the top of the page" keeps its meaning for undated pages.
+        let mut items = vec![];
+        let longest = per_url.iter().map(Vec::len).max().unwrap_or(0);
+        for r in 0..longest {
+            for list in &per_url {
+                if let Some(x) = list.get(r) {
+                    items.push(x.clone());
+                }
+            }
+        }
         let items = within(items, m.filters["min"].as_f64(), m.filters["max"].as_f64());
         let words: Vec<String> = m.filters["words"].as_array().into_iter().flatten().filter_map(|w| w.as_str().map(str::to_string)).collect();
         let items = matching(items, &words);
-        Ok::<_, anyhow::Error>((st.apply(&m.id, &items), tokens))
+        let items = rules(items, m.filters["city"].as_str().unwrap_or(""));
+        let mut d = st.apply(&m.id, &items);
+        // The judge decides which new listings match the user's request (monitor lab L1:
+        // keyword search finds ~99 % of what the user wants but with a third look-alikes).
+        if m.filters["judge"] == true {
+            let todo: Vec<Listing> = if d.baseline { items.clone() } else { d.new.clone() };
+            if !todo.is_empty() {
+                let (verdicts, t) = judge(app, &m.request, &todo).await;
+                tokens += t;
+                st.set_matched(&m.id, &verdicts);
+                let ok: std::collections::HashSet<&str> = verdicts.iter().filter(|(_, v)| *v).map(|(id, _)| id.as_str()).collect();
+                d.new.retain(|l| ok.contains(l.id.as_str()));
+                d.matched = Some(ok.len());
+            }
+        }
+        Ok::<_, anyhow::Error>((d, tokens))
     }
     .await;
     tab.close().await;
     let _ = chrome.save_cookies(screen).await;
     res
+}
+
+/// Postcode ranges of the cities whose Kleinanzeigen searches pad thin results with listings
+/// from other towns (monitor lab L1: Gotha and Marburg in a Hamburg free search).
+fn city_postcodes(city: &str) -> Option<(u32, u32)> {
+    Some(match city {
+        "berlin" => (10000, 14199),
+        "hamburg" => (20000, 22799),
+        "muenchen" => (80000, 81929),
+        _ => return None,
+    })
+}
+
+/// Code rules before the judge: sold listings, "looking for" / swap posts, and (Kleinanzeigen)
+/// listings outside the asked city.
+pub fn rules(items: Vec<Listing>, city: &str) -> Vec<Listing> {
+    let sold = regex::Regex::new(r"(?i)\b(verkauft|sold)\b").unwrap();
+    let suche = regex::Regex::new(r"(?i)^\s*(ich\s+)?(suche|tausche|gesucht)\b").unwrap();
+    let range = city_postcodes(city);
+    let pc = regex::Regex::new(r"\b(\d{5})\b").unwrap();
+    items.into_iter().filter(|l| {
+        if sold.is_match(&l.title) || suche.is_match(&l.title) {
+            return false;
+        }
+        match (range, l.url.contains("kleinanzeigen.de"), pc.captures(&l.location)) {
+            (Some((lo, hi)), true, Some(c)) => c[1].parse::<u32>().is_ok_and(|p| (lo..=hi).contains(&p)),
+            _ => true,
+        }
+    }).collect()
+}
+
+const JUDGE_SYS: &str = "You check second-hand marketplace listings for a saved search. For EVERY numbered listing first name what is offered (t: 1-4 words), then decide whether it is the kind of item the buyer asked for. \
+'New' in the request means newly posted listings, never the item's condition: used, worn or damaged items still match. Place, price and 'free' are already filtered: ignore them. \
+Do NOT match: accessories or parts alone, look-alikes of another type, other models/sizes than the buyer named, and 'suche' (looking-for) posts. \
+Reply ONLY with JSON {\"verdicts\": [{\"n\": 1, \"t\": \"…\", \"m\": true|false}, ...]} covering every listing.";
+
+/// Judge v6 from the monitor lab (L1, exp-064: recall 0.99, precision 0.97 with the user's request
+/// verbatim, title + 160 chars of description, the light model). → (listing id, matches) and tokens.
+/// If the model is unreachable every listing counts as a match (fail open: never miss an item).
+pub async fn judge(app: &crate::AppState, request: &str, items: &[Listing]) -> (Vec<(String, bool)>, u64) {
+    let mut out = vec![];
+    let mut tokens = 0u64;
+    for chunk in items.chunks(40) {
+        let cards: Vec<String> = chunk.iter().enumerate().map(|(k, l)| {
+            let desc: String = l.desc.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(160).collect();
+            if desc.is_empty() { format!("{}. {}", k + 1, l.title) } else { format!("{}. {} — {desc}", k + 1, l.title) }
+        }).collect();
+        let user = format!("Buyer's request: {request}\n\nListings:\n{}", cards.join("\n"));
+        let verdicts: Option<std::collections::HashMap<usize, bool>> = match crate::llm::complete_tier(app, crate::llm::Tier::Light, JUDGE_SYS, &user, true, 4000).await {
+            Ok((txt, u)) => {
+                tokens += u.prompt + u.completion;
+                let j: Option<Value> = txt.find('{').and_then(|i| serde_json::from_str(&txt[i..txt.rfind('}').map(|e| e + 1).unwrap_or(txt.len())]).ok());
+                j.and_then(|j| j["verdicts"].as_array().map(|vs| vs.iter().filter_map(|v| Some((v["n"].as_u64()? as usize, v["m"].as_bool().unwrap_or(false)))).collect()))
+            }
+            Err(e) => {
+                tracing::warn!("monitor judge unavailable: {e:#}");
+                None
+            }
+        };
+        for (k, l) in chunk.iter().enumerate() {
+            out.push((l.id.clone(), verdicts.as_ref().map(|v| v.get(&(k + 1)).copied().unwrap_or(false)).unwrap_or(true)));
+        }
+    }
+    (out, tokens)
+}
+
+const EXPAND_SYS: &str = "You set up a saved search on a second-hand marketplace (willhaben.at / kleinanzeigen.de / ebay, German-language listings). \
+Place, price and 'free' are applied as filters separately: NEVER put places, prices, 'gratis', 'zu verschenken', 'gebraucht' or similar into keywords. \
+The site matches every word of a keyword against title + description, so keep each keyword 1-2 words. \
+Reply ONLY with JSON {\"keywords\": [3-5 terms: the exact item word, its synonyms and common spellings sellers use, and one broader word that still contains most matches]}.";
+
+/// Keyword expansion at monitor creation (monitor lab L1: one exact keyword reaches 86 % of
+/// what users want, 3-5 filter-free keywords 99.8 %). → keywords (the query first) and tokens.
+pub async fn expand(app: &crate::AppState, request: &str, query: &str) -> (Vec<String>, u64) {
+    let mut kws = vec![query.trim().to_string()];
+    let Ok((txt, u)) = crate::llm::complete_tier(app, crate::llm::Tier::Light, EXPAND_SYS, request, true, 1500).await else { return (kws, 0) };
+    let j: Option<Value> = txt.find('{').and_then(|i| serde_json::from_str(&txt[i..txt.rfind('}').map(|e| e + 1).unwrap_or(txt.len())]).ok());
+    for k in j.as_ref().and_then(|j| j["keywords"].as_array()).into_iter().flatten().filter_map(|k| k.as_str()) {
+        let k = k.trim();
+        if !k.is_empty() && k.split_whitespace().count() <= 3 && !kws.iter().any(|x| x.eq_ignore_ascii_case(k)) {
+            kws.push(k.to_string());
+        }
+    }
+    kws.truncate(5);
+    (kws, u.prompt + u.completion)
+}
+
+/// One product page as a tracked "listing": id = the URL, title, price and stock from the page's
+/// own offer data (JSON-LD) or the shop's price element (Amazon, eBay). 0 tokens.
+async fn product(tab: &crate::browser::cdp::Tab, url: &str) -> anyhow::Result<Listing> {
+    tab.goto(url, std::time::Duration::from_secs(30)).await?;
+    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+    let head = tab.eval("document.documentElement.outerHTML.slice(0, 20000)").await.ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default();
+    if crate::browser::extract::is_challenge(&head) {
+        anyhow::bail!("bot check");
+    }
+    let offer = tab.eval(crate::browser::scrape::OFFER_JS).await.unwrap_or(Value::Null);
+    let page = tab.eval(r#"(() => { const t = s => { const e = document.querySelector(s); return e ? (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim() : ''; };
+        return {title: t('#productTitle') || t('h1') || document.title, price: t('#corePrice_feature_div .a-offscreen') || t('#apex_desktop .a-price .a-offscreen') || t('.x-price-primary'),
+                stock: t('#availability') || t('.x-quantity__availability')}; })()"#).await.unwrap_or(Value::Null);
+    let price = match (&offer["price"], offer["currency"].as_str()) {
+        (Value::String(p), c) => format!("{p} {}", c.unwrap_or("")).trim().to_string(),
+        (Value::Number(p), c) => format!("{p} {}", c.unwrap_or("")).trim().to_string(),
+        _ => page["price"].as_str().unwrap_or("").to_string(),
+    };
+    if price_num(&price).is_none() {
+        anyhow::bail!("no price on the page");
+    }
+    let stock = offer["availability"].as_str().map(str::to_string).unwrap_or_else(|| page["stock"].as_str().unwrap_or("").split('{').next().unwrap_or("").trim().to_string());
+    Ok(Listing { id: url.to_string(), url: url.to_string(), title: page["title"].as_str().unwrap_or("").chars().take(140).collect(), price,
+                 location: offer["seller"].as_str().map(|s| format!("Seller: {s}")).unwrap_or_default(), posted: stock, desc: String::new() })
+}
+
+/// Price trackers: which changes are worth an alert — any drop, or crossing the user's target
+/// price (filters.below), or back in stock.
+fn price_alerts(m: &Monitor, d: &Diff) -> Vec<(Listing, String)> {
+    let below = m.filters["below"].as_f64();
+    d.changed.iter().filter(|(l, old)| {
+        let (n, o) = (price_num(&l.price), price_num(old));
+        match (n, o, below) {
+            (Some(n), Some(_), Some(b)) => n <= b,
+            (Some(n), Some(o), None) => n < o,
+            _ => false,
+        }
+    }).cloned().collect()
 }
 
 fn alert_text(m: &Monitor, d: &Diff) -> String {
@@ -593,7 +844,13 @@ pub fn spawn(app: std::sync::Arc<crate::AppState>, log: crate::tasklog::TaskLog)
                         Ok((d, tokens)) => {
                             tracing::info!(monitor = m.id, found = d.found, new = d.new.len(), changed = d.changed.len(), tokens, "monitor run");
                             st.finish_run(&m.id, &d, tokens, ms, None);
-                            if !d.new.is_empty() {
+                            let drops = if m.filters["products"].is_array() { price_alerts(&m, &d) } else { vec![] };
+                            if !drops.is_empty() {
+                                let tid = log.start("monitor", "monitor", &format!("Price change: {}", m.name));
+                                let lines: Vec<String> = drops.iter().map(|(l, old)| format!("- **{}**: {old} → {}  \n  {}", l.title, l.price, l.url)).collect();
+                                log.finish(&tid, "done", &format!("{} price {} on \"{}\":\n\n{}", drops.len(), if drops.len() == 1 { "change" } else { "changes" }, m.name, lines.join("\n")));
+                            }
+                            if !d.new.is_empty() && !m.filters["products"].is_array() {
                                 let tid = log.start("monitor", "monitor", &format!("New on {}: {}", m.site, m.name));
                                 let rep = alert_report(&m, &d);
                                 log.update(&tid, |r| {
@@ -669,9 +926,63 @@ fn de_region(place: &str) -> Option<&'static str> {
     })
 }
 
+/// Extra search filters (things for sale).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SearchOpts {
+    /// Only free items: willhaben "Nur zu verschenken", Kleinanzeigen "Zu verschenken & Tauschen".
+    pub free: bool,
+    /// Private sellers only (willhaben).
+    pub private: bool,
+}
+
+/// willhaben `areaId` for a place (checked on the live site, 2026-10-18): the Bundesländer, Wien
+/// (900) and the Vienna districts (117222 + district number), from a district number, a postcode
+/// (1070) or "Wien 7" / "7. Bezirk"; other Austrian cities → their Bundesland.
+pub fn willhaben_area(place: &str) -> Option<String> {
+    let p = slug(place);
+    let digits: String = p.chars().filter(|c| c.is_ascii_digit()).collect();
+    let viennese = p.contains("wien") || p.contains("vienna") || p.contains("bezirk");
+    let district = match digits.len() {
+        4 if digits.starts_with('1') => digits[1..3].parse::<u32>().ok(),
+        1 | 2 if viennese => digits.parse::<u32>().ok(),
+        _ => None,
+    };
+    if let Some(n) = district.filter(|n| (1..=23).contains(n)) {
+        return Some((117222 + n).to_string());
+    }
+    let state = |s: &str| Some(match s {
+        "wien" | "vienna" => "900", "burgenland" => "1", "kaernten" => "2", "niederoesterreich" => "3", "oberoesterreich" => "4",
+        "salzburg" => "5", "steiermark" => "6", "tirol" => "7", "vorarlberg" => "8", _ => return None,
+    }.to_string());
+    state(p.as_str()).or_else(|| at_region(place).and_then(|r| state(r.split('/').next().unwrap_or(""))))
+}
+
+/// Removes "zu verschenken", "gratis", "kostenlos", "umsonst", "for free", "gives away" from a
+/// query → (cleaned query, whether the user asked for free items).
+pub fn strip_free_words(q: &str) -> (String, bool) {
+    let re = regex::Regex::new(r"(?i)\b(zu verschenken|verschenken|verschenkt|geschenkt|gratis|kostenlos|umsonst|for free|free|gives? away|giving away)\b").unwrap();
+    let free = re.is_match(q);
+    (re.replace_all(q, " ").split_whitespace().collect::<Vec<_>>().join(" "), free)
+}
+
+/// Kleinanzeigen location (slug, code) for the cities checked on the live site.
+pub fn kleinanzeigen_city(place: &str) -> Option<(&'static str, &'static str)> {
+    Some(match slug(place).as_str() {
+        "berlin" => ("berlin", "l3331"),
+        "hamburg" => ("hamburg", "l9409"),
+        "muenchen" | "munich" => ("muenchen", "l6411"),
+        _ => return None,
+    })
+}
+
 /// `site`: willhaben | immoscout_at | immoscout_de | ebay_de | ebay_at | kleinanzeigen | amazon_de;
 /// `kind`: market (things) | rent | buy (flats). Newest first wherever the site allows it.
 pub fn search_url(site: &str, kind: &str, query: &str, place: &str, min: Option<f64>, max: Option<f64>) -> Option<String> {
+    search_url_opts(site, kind, query, place, min, max, SearchOpts::default())
+}
+
+pub fn search_url_opts(site: &str, kind: &str, query: &str, place: &str, min: Option<f64>, max: Option<f64>, o: SearchOpts) -> Option<String> {
+    let (min, max) = if o.free && kind == "market" { (Some(0.0), Some(0.0)) } else { (min, max) };
     let q: String = url::form_urlencoded::byte_serialize(query.trim().as_bytes()).collect();
     let n = |x: Option<f64>| x.map(|v| format!("{v:.0}")).unwrap_or_default();
     let flat = kind == "rent" || kind == "buy";
@@ -694,8 +1005,10 @@ pub fn search_url(site: &str, kind: &str, query: &str, place: &str, min: Option<
         }
         "willhaben" => {
             let mut u = format!("https://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?keyword={q}");
+            if let Some(a) = willhaben_area(place) { u.push_str(&format!("&areaId={a}")); }
             if min.is_some() { u.push_str(&format!("&PRICE_FROM={}", n(min))); }
             if max.is_some() { u.push_str(&format!("&PRICE_TO={}", n(max))); }
+            if o.private { u.push_str("&ISPRIVATE=1"); }
             u + "&sort=1"
         }
         "immoscout_de" => {
@@ -714,8 +1027,31 @@ pub fn search_url(site: &str, kind: &str, query: &str, place: &str, min: Option<
             u
         }
         "kleinanzeigen" => {
+            let city = kleinanzeigen_city(place);
+            if o.free {
+                // The "Zu verschenken & Tauschen" category (c272): every listing in it is free.
+                return Some(match city {
+                    Some((c, l)) => format!("https://www.kleinanzeigen.de/s-zu-verschenken-tauschen/{c}/{}/k0c272{l}", slug(query)),
+                    None => format!("https://www.kleinanzeigen.de/s-zu-verschenken-tauschen/{}/k0c272", slug(query)),
+                });
+            }
             let price = if min.is_some() || max.is_some() { format!("preis:{}:{}/", n(min), n(max)) } else { String::new() };
-            format!("https://www.kleinanzeigen.de/s-sortierung:neuste/{price}{}/k0", slug(query))
+            match city {
+                Some((c, l)) => format!("https://www.kleinanzeigen.de/s-{c}/sortierung:neuste/{price}{}/k0{l}", slug(query)),
+                None => format!("https://www.kleinanzeigen.de/s-sortierung:neuste/{price}{}/k0", slug(query)),
+            }
+        }
+        // Facebook Marketplace (Sam's signed-in session): city page, newest first; free = max price 0.
+        "fb_marketplace" | "facebook" => {
+            let p = slug(place);
+            let city = match p.as_str() {
+                "wien" | "vienna" => "vienna", "berlin" => "berlin", "muenchen" | "munich" => "munich", "hamburg" => "hamburg", "graz" => "graz",
+                "linz" => "linz", "salzburg" => "salzburg", "koeln" | "cologne" => "cologne", "frankfurt" => "frankfurt", s if !s.is_empty() => s, _ => "vienna",
+            };
+            let mut u = format!("https://www.facebook.com/marketplace/{city}/search/?query={q}&sortBy=creation_time_descend&exact=false");
+            if min.is_some() { u.push_str(&format!("&minPrice={}", n(min))); }
+            if max.is_some() { u.push_str(&format!("&maxPrice={}", n(max))); }
+            u
         }
         "amazon_de" => {
             let mut u = format!("https://www.amazon.de/s?k={q}&s=date-desc-rank");
@@ -762,6 +1098,16 @@ mod url_tests {
         assert_eq!(u("willhaben", "rent", "", "Graz", Some(900.0)), "https://www.willhaben.at/iad/immobilien/mietwohnungen/steiermark/graz?PRICE_TO=900&sort=1");
         assert_eq!(u("willhaben", "buy", "", "wien", Some(400000.0)), "https://www.willhaben.at/iad/immobilien/eigentumswohnung/wien?PRICE_TO=400000&sort=1");
         assert_eq!(u("willhaben", "market", "thinkpad x1", "", Some(600.0)), "https://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?keyword=thinkpad+x1&PRICE_TO=600&sort=1");
+        let free = super::SearchOpts { free: true, ..Default::default() };
+        assert_eq!(super::search_url_opts("willhaben", "market", "trenchcoat", "Wien", None, None, free).unwrap(), "https://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?keyword=trenchcoat&areaId=900&PRICE_FROM=0&PRICE_TO=0&sort=1");
+        assert_eq!(super::search_url_opts("willhaben", "market", "sofa", "1070 Wien", None, Some(50.0), super::SearchOpts { private: true, ..Default::default() }).unwrap(), "https://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?keyword=sofa&areaId=117229&PRICE_TO=50&ISPRIVATE=1&sort=1");
+        assert_eq!(super::willhaben_area("Graz").as_deref(), Some("6"));
+        assert_eq!(super::search_url_opts("fb_marketplace", "market", "sofa", "Wien", None, None, free).unwrap(), "https://www.facebook.com/marketplace/vienna/search/?query=sofa&sortBy=creation_time_descend&exact=false&minPrice=0&maxPrice=0");
+        assert_eq!(super::strip_free_words("Trenchcoat zu verschenken"), ("Trenchcoat".to_string(), true));
+        assert_eq!(super::strip_free_words("sofa"), ("sofa".to_string(), false));
+        assert_eq!(super::willhaben_area("Wien 22").as_deref(), Some("117244"));
+        assert_eq!(super::search_url_opts("kleinanzeigen", "market", "Fahrrad", "Berlin", None, None, free).unwrap(), "https://www.kleinanzeigen.de/s-zu-verschenken-tauschen/berlin/fahrrad/k0c272l3331");
+        assert_eq!(u("kleinanzeigen", "market", "schreibtisch", "München", Some(200.0)), "https://www.kleinanzeigen.de/s-muenchen/sortierung:neuste/preis::200/schreibtisch/k0l6411");
         assert_eq!(u("immoscout_de", "rent", "", "München", Some(1500.0)), "https://www.immobilienscout24.de/Suche/de/bayern/muenchen/wohnung-mieten?sorting=2&price=-1500.0");
         assert_eq!(u("ebay_at", "market", "thinkpad x1", "", Some(600.0)), "https://www.ebay.at/sch/i.html?_nkw=thinkpad+x1&_sop=10&_udhi=600");
         assert_eq!(u("kleinanzeigen", "market", "thinkpad x1", "", Some(600.0)), "https://www.kleinanzeigen.de/s-sortierung:neuste/preis::600/thinkpad-x1/k0");

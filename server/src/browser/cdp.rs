@@ -493,6 +493,51 @@ impl Tab {
         Ok(())
     }
 
+    /// Network responses whose URL contains `part`, collected for `wait` after `action`
+    /// ("navigate:<url>", "scroll", or "" to just listen): [(HTTP status, body)]. For sites that
+    /// load their results as JSON (X GraphQL, TikTok search), reading that JSON beats parsing
+    /// the DOM: no class names to break.
+    pub async fn responses(&self, action: &str, part: &str, wait: Duration) -> anyhow::Result<Vec<(u16, String)>> {
+        self.send("Network.enable", json!({})).await?;
+        let mut ev = self.events.lock().await;
+        while ev.try_recv().is_ok() {}
+        if let Some(url) = action.strip_prefix("navigate:") {
+            if !allowed_url(url) {
+                bail!("refusing to open {url}: only http(s) pages");
+            }
+            self.send("Page.navigate", json!({"url": url})).await?;
+        } else if action == "scroll" {
+            self.eval("window.scrollBy(0, document.body.scrollHeight)").await?;
+        } else if let Some(sel) = action.strip_prefix("click:") {
+            self.eval(&format!("(()=>{{const e=document.querySelector({}); if(e) e.click(); return !!e}})()", serde_json::to_string(sel)?)).await?;
+        }
+        let mut hits: Vec<(String, u16)> = vec![];
+        let mut done = std::collections::HashSet::new();
+        let end = tokio::time::Instant::now() + wait;
+        while let Ok(Some(e)) = tokio::time::timeout_at(end, ev.recv()).await {
+            match e["method"].as_str() {
+                Some("Network.responseReceived") if e["params"]["response"]["url"].as_str().is_some_and(|u| u.contains(part)) => {
+                    hits.push((e["params"]["requestId"].as_str().unwrap_or("").to_string(), e["params"]["response"]["status"].as_u64().unwrap_or(0) as u16));
+                }
+                Some("Network.loadingFinished") => {
+                    done.insert(e["params"]["requestId"].as_str().unwrap_or("").to_string());
+                }
+                _ => {}
+            }
+        }
+        drop(ev);
+        let mut out = vec![];
+        for (id, status) in hits {
+            let body = if done.contains(&id) || status != 200 {
+                self.send("Network.getResponseBody", json!({"requestId": id})).await.ok().and_then(|b| b["body"].as_str().map(str::to_string)).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            out.push((status, body));
+        }
+        Ok(out)
+    }
+
     /// Block what text extraction never needs: media, fonts, images, ad/tracker scripts.
     pub async fn block_heavy(&self) -> anyhow::Result<()> {
         self.send("Network.enable", json!({})).await?;

@@ -1,0 +1,1 @@
+X and TikTok are read in Sam's own signed-in sessions (Connectors; a secondary account is recommended) at a human pace: a run takes a few minutes and about 8-12 requests. TikTok = the comments under the most-watched videos on the topic. facebook_ads needs no login: active ads of a brand, how long each has run (long-running ads are usually the winners).

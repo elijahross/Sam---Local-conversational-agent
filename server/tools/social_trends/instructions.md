@@ -1,0 +1,1 @@
+TikTok: hashtags and sounds ranked by plays of videos from the last 14 days in TikTok search for the niche. X: the trending tab for Sam's account location. Amazon: the Movers & Shakers page (biggest sales-rank gains in 24 h).

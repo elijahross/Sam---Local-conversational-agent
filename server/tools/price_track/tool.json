@@ -1,0 +1,17 @@
+{
+ "name": "price_track",
+ "summary": "Track the prices of specific product pages over time (competitor listings on Amazon, eBay or any shop; links or Amazon ASINs): price, stock and seller, with an alert when a price drops or reaches a target ('Preis beobachten', 'watch my competitors' prices', 'tell me when … drops below …'). For NEW listings of a search use monitor_create.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "write",
+ "approval": "always_allow",
+ "args": {
+  "products": "string[]: product URLs or Amazon ASINs",
+  "alert": "string: when to alert in the user's words ('below 300 €', 'any drop')",
+  "interval": "daily | hourly (default daily)",
+  "name": "string: short label (optional)"
+ },
+ "runner": "builtin"
+}

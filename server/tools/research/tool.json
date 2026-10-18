@@ -1,6 +1,6 @@
 {
  "name": "research",
- "summary": "Web search, read the top pages and write a short cited brief. For questions that need current or web facts.",
+ "summary": "Web search, read the top pages and write a short cited brief: current facts, news, what something costs new in shops, schedules, how-tos.",
  "kinds": [
   "research"
  ],

@@ -1,0 +1,16 @@
+{
+ "name": "social_research",
+ "summary": "What people say on X (Twitter) or TikTok (comments) about a topic, person, brand or product ('was sagen die Leute auf X / TikTok über …', 'how do people react to …'): themes, the pro/contra split, quotes with links. Also a brand's active ads in the Meta (Facebook / Instagram) Ad Library (site facebook_ads). For Reddit use reddit_research.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "question": "string: what to find out, self-contained, in the user's language",
+  "site": "x (default) | tiktok | facebook_ads",
+  "advertiser": "string: brand / page name (facebook_ads only)",
+  "country": "string: country code for facebook_ads (default AT)"
+ },
+ "runner": "builtin"
+}

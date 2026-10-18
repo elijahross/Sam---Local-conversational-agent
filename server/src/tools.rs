@@ -150,6 +150,24 @@ impl Registry {
         self.tools.iter().find(|t| t.name == name)
     }
 
+    /// Generic tools every plan may need; the routing lab (L8) showed keyword-rich specialised
+    /// tools pushing them out of the top-k ("What does a new Leica Q3 cost?" never saw research).
+    pub const CORE: [&'static str; 5] = ["research", "scrape", "web_fetch", "web_task", "browse"];
+
+    /// The core tools (those present) plus the `k` best of the rest.
+    pub fn select_with_core(&self, request: &str, kind: Option<&str>, sims: Option<&[f32]>, k: usize) -> Vec<&ToolSpec> {
+        let mut out: Vec<&ToolSpec> = self.tools.iter().filter(|t| Self::CORE.contains(&t.name.as_str())).collect();
+        for t in self.select(request, kind, sims, k + out.len()) {
+            if out.len() >= k + Self::CORE.len() {
+                break;
+            }
+            if !out.iter().any(|x| x.name == t.name) {
+                out.push(t);
+            }
+        }
+        out
+    }
+
     /// Top-k tools for a request. `sims` = optional embedding similarity per tool (same order
     /// as `self.tools`), computed by the caller with the mind sidecar.
     pub fn select(&self, request: &str, kind: Option<&str>, sims: Option<&[f32]>, k: usize) -> Vec<&ToolSpec> {

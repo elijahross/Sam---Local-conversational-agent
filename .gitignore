@@ -3,6 +3,8 @@
 .env.*
 !.env.example
 
+lab/
+
 # Python
 .venv*/
 __pycache__/
@@ -50,3 +52,13 @@ app/Tests/E2E/vdisplay/vdisplay
 
 # Update signing key backups (generate_keys -x): never commit
 sam-update-key*
+
+# Lab: recreatable environment, raw page captures and embedding caches
+lab/.venv/
+lab/**/data/raw/
+lab/**/data/pages/
+lab/**/data/features/vec_*
+lab/**/data/features/emb_*
+lab/**/data/features/proto*
+lab/**/data/features/laya-*
+lab/**/data/features/dup_*

@@ -1,0 +1,14 @@
+{
+ "name": "social_profile",
+ "summary": "One social media account in depth (TikTok, X or Instagram; 'analysiere @…', 'how is @… doing', check a creator before outreach): followers, median views / likes of recent posts, posting cadence, bio, contact.",
+ "kinds": [
+  "research",
+  "browser"
+ ],
+ "effects": "read",
+ "args": {
+  "handle": "string: @name or profile URL",
+  "site": "tiktok (default) | x | instagram"
+ },
+ "runner": "builtin"
+}
