@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates clang pkg-config git python3 python3-venv sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
+# cargo / rustc also in login shells (bash -l resets PATH to the system default).
+RUN echo 'export PATH=/usr/local/cargo/bin:$PATH' > /etc/profile.d/cargo.sh
+
 # scanner contract: the checkout lives inside the image, at /src
 COPY . /src
 WORKDIR /src/server
