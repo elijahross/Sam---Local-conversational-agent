@@ -150,12 +150,19 @@ async fn storage_cleanup(State(st): State<Arc<AppState>>) -> impl IntoResponse {
     Json(serde_json::json!({"ok": true, "freed": freed, "notes": notes}))
 }
 
+#[cfg(target_os = "macos")]
 fn ram_bytes() -> u64 {
     let mut v: u64 = 0;
     let mut n = std::mem::size_of::<u64>();
     let name = std::ffi::CString::new("hw.memsize").unwrap();
     unsafe { libc::sysctlbyname(name.as_ptr(), &mut v as *mut u64 as *mut libc::c_void, &mut n, std::ptr::null_mut(), 0) };
     v
+}
+
+/// Other platforms (the Linux build for security scanning): /proc/meminfo.
+#[cfg(not(target_os = "macos"))]
+fn ram_bytes() -> u64 {
+    std::fs::read_to_string("/proc/meminfo").ok().and_then(|m| m.lines().find(|l| l.starts_with("MemTotal:")).and_then(|l| l.split_whitespace().nth(1)?.parse::<u64>().ok())).map(|kb| kb * 1024).unwrap_or(0)
 }
 
 async fn history_search(State(st): State<Arc<AppState>>, axum::extract::Query(q): axum::extract::Query<voice_agent::history::Query>) -> impl IntoResponse {
