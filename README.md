@@ -14,7 +14,7 @@
 
 ---
 
-> **Status: experimental.** Sam is a personal project used daily on one Mac. It is not notarized, it acts on your accounts when you ask it to, and the defaults reflect one person's setup. Read [Risks](#risks-and-privacy) before you install it.
+> **Status: experimental.** Sam is a personal project used daily on one Mac. It acts on your accounts when you ask it to, and the defaults reflect one person's setup. Read [Risks](#risks-and-privacy) before you install it.
 
 ## Contents
 
@@ -195,7 +195,7 @@ Sam is powerful because it can see, remember and act. Know what that means befor
 **Other things to know**
 - **Voice cloning:** Sam's voices come from synthetic source clips, not real people. Qwen3-TTS can clone any voice from 10 seconds of audio: only add voices you have the right to use, and never use Sam to impersonate someone.
 - **Local services:** the agent server and helpers listen on 127.0.0.1 only and require a per-user token (`~/Library/Application Support/Sam/local-token`). They refuse requests from web pages (Origin / Host checks).
-- **Signing:** builds are signed with a self-made local identity, not a Developer ID. Other Macs will show Gatekeeper warnings; distributing Sam needs proper signing and notarization.
+- **Signing:** releases are signed with a Developer ID and notarized by Apple, so macOS opens them without warnings. Builds from source without a Developer ID certificate use a local identity and only run on the Mac that built them (see [release/README.md](release/README.md)).
 - **Claude CLI provider:** uses your own Claude subscription through the signed-in `claude` CLI, for personal use on your own Mac only (Anthropic's terms apply). It runs headless with every tool off and only essential environment variables.
 - **Not a safety device:** Sam can mishear, misremember and be confidently wrong. Don't rely on it for medical, legal, financial or safety decisions.
 
@@ -266,7 +266,6 @@ End-of-turn detection (smart-turn v3) cuts users off at 20 % of mid-sentence pau
 - macOS 26 on Apple Silicon only; no Intel, Windows, Linux or mobile client.
 - English first. Other languages work for recognition, but the voice garbles about 1 in 4 sentences outside English.
 - One user per Mac. There is no sync between Macs and no multi-user separation.
-- Not notarized: other Macs show Gatekeeper warnings until Sam is signed with a Developer ID.
 - The cloud LLM is still the main latency and the main privacy boundary.
 - Computer use and website automation depend on app and site layouts, and break when those change.
 
