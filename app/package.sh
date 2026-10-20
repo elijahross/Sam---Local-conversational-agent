@@ -51,14 +51,24 @@ cp $R/AppIcon.icns "$HELPER/Contents/Resources/"
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$HELPER/Contents/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$HELPER/Contents/Info.plist"
 
 echo "== signing"
-ID=$(security find-identity -p codesigning | grep -E "(Sam|Rowan) Local Code Signing" | head -1 | awk '{print $2}')
-SIGN=(codesign --force --timestamp=none --sign "${ID:--}")
-for f in $R/bin/* $R/sidecar/applestt/build/applestt; do $SIGN "$f"; done
-$SIGN --identifier one.sam.computeruse "dist/Sam.app/Contents/Library/Helpers/Sam Computer Use.app"
-F="dist/Sam.app/Contents/Frameworks/Sparkle.framework/Versions/B"
-for x in "$F/XPCServices/Installer.xpc" "$F/XPCServices/Downloader.xpc" "$F/Autoupdate" "$F/Updater.app" "dist/Sam.app/Contents/Frameworks/Sparkle.framework"; do $SIGN "$x"; done
-$SIGN --identifier one.sam.app dist/Sam.app
+source app/sign.sh
+echo "identity: $SIGN_ID$([ $DIST = 1 ] && echo ' (distribution: hardened runtime + notarization)')"
+# Inside out: loose executables, the helper app, Sparkle, then the app itself.
+sign $R/bin/sam-server "$ENT/helper.entitlements"
+for f in $R/bin/sam-workspace $R/bin/uv $R/sidecar/applestt/build/applestt; do sign "$f"; done
+sign "dist/Sam.app/Contents/Library/Helpers/Sam Computer Use.app/Contents/MacOS/sam-computer" "$ENT/helper.entitlements"
+sign "dist/Sam.app/Contents/Library/Helpers/Sam Computer Use.app" "$ENT/helper.entitlements" one.sam.computeruse
+sign_sparkle dist/Sam.app
+sign dist/Sam.app "$ENT/Sam.entitlements" one.sam.app
 codesign --verify --deep --strict dist/Sam.app && echo "signature ok"
+if [ $DIST = 1 ]; then
+  # Notarize the app and staple its ticket (also inside the update zip and the dmg).
+  ditto -c -k --keepParent dist/Sam.app dist/Sam-notarize.zip
+  notarize dist/Sam-notarize.zip || { rm -f dist/Sam-notarize.zip; echo "!! stopping: the app is signed but not notarized"; exit 1; }
+  rm -f dist/Sam-notarize.zip
+  xcrun stapler staple dist/Sam.app
+  spctl --assess --type execute -vv dist/Sam.app
+fi
 
 echo "== dmg"
 mkdir -p dist/dmg
@@ -77,6 +87,14 @@ rmdir "$MNT" 2>/dev/null || true
 hdiutil convert dist/Sam-rw.dmg -format UDZO -o dist/Sam-$VER.dmg >/dev/null
 rm -f dist/Sam-rw.dmg
 rm -rf dist/dmg
+if [ $DIST = 1 ]; then
+  # The dmg itself: signed, notarized, stapled (Gatekeeper checks it when it is opened).
+  codesign --force --sign "$SIGN_ID" --timestamp dist/Sam-$VER.dmg
+  notarize dist/Sam-$VER.dmg || { echo "!! stopping: the dmg is signed but not notarized"; exit 1; }
+  xcrun stapler staple dist/Sam-$VER.dmg
+  spctl --assess --type open --context context:primary-signature -vv dist/Sam-$VER.dmg
+fi
 # The .dmg file's own icon in Finder (kept locally; downloads show the generic disk image).
-app/Sam/build/make_icon --set-icon $R/AppIcon.icns dist/Sam-$VER.dmg || true
+# Not on a notarized dmg: setting the icon adds a resource fork after signing.
+[ $DIST = 1 ] || app/Sam/build/make_icon --set-icon $R/AppIcon.icns dist/Sam-$VER.dmg || true
 du -sh dist/Sam.app dist/Sam-$VER.dmg

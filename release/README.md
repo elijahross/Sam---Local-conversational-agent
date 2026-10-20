@@ -54,8 +54,22 @@ safety settings are never in the manifest; they ship with app updates.
 4. Open the copy (with your own Sam closed). Expect `data/manifest.json` to be replaced and `model manifest loaded version=N` in `~/Library/Logs/Sam/server.log`. A manifest with a bad signature or a lower version must be ignored.
 5. Clean up: quit the copy and delete `~/Library/Application Support/Sam/data/manifest.json`, or installed apps ignore lower published versions.
 
-## Caveats
+## Signing and notarization
 
-- Builds are signed with the local identity (`sidecar/computer/signing.sh`). Updates keep macOS
-  permissions only when made with the same identity. For distribution to other people, sign with
-  a Developer ID and notarize.
+`app/package.sh` (and so `app/release.sh`) signs with a **Developer ID Application** certificate
+when the keychain has one (or `SIGN_ID=...`): hardened runtime, secure timestamp and entitlements
+(`app/entitlements/`: microphone + Apple Events for the app; Apple Events for the server and the
+computer-use helper). It then notarizes and staples the app and the dmg, and checks both with
+`spctl`. Without the certificate it falls back to the local identity
+(`sidecar/computer/signing.sh`), with no notarization: fine for your own Mac only.
+
+One-time setup on the release Mac:
+1. Xcode › Settings › Accounts › your team › Manage Certificates › + › **Developer ID Application**
+   (the Account Holder can create it). `security find-identity -v -p codesigning` then lists it.
+2. Create an app-specific password at appleid.apple.com, then store the notarization profile:
+   `xcrun notarytool store-credentials sam-notary --apple-id <your Apple ID> --team-id <TEAM ID>`
+   (other profile names: `NOTARY_PROFILE=...`).
+
+The first Developer-ID build has a new code signature, so macOS asks again **once** for microphone,
+Accessibility and the other grants. Sparkle accepts the change because updates are trusted
+through the EdDSA key, not the code signature.

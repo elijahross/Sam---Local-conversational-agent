@@ -22,8 +22,10 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>NSAppleEventsUsageDescription</key><string>Sam controls apps you ask it to.</string>
 </dict></plist>
 PL
-# Stable local identity (signing.sh) keeps macOS permission grants across rebuilds.
-ID=$(security find-identity -p codesigning | grep -E "(Sam|Rowan) Local Code Signing" | head -1 | awk '{print $2}')
-codesign --force --sign "${ID:--}" --identifier one.sam.computeruse "$APP"
+# A stable identity (app/sign.sh: Developer ID, else the local one from signing.sh) keeps
+# macOS permission grants across rebuilds.
+source ../../app/sign.sh
+sign "$APP/Contents/MacOS/sam-computer" "$ENT/helper.entitlements"
+sign "$APP" "$ENT/helper.entitlements" one.sam.computeruse
 codesign -d -r- "$APP" 2>&1 | grep designated
 echo "built $APP"

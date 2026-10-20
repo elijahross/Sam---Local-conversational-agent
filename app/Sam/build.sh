@@ -58,11 +58,8 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>NSAppleEventsUsageDescription</key><string>Sam works with apps you ask it to.</string>
 </dict></plist>
 PL
-ID=$(security find-identity -p codesigning | grep -E "(Sam|Rowan) Local Code Signing" | head -1 | awk '{print $2}')
-# Sparkle's helpers inside out, then the app (the same identity, so updates keep macOS grants).
-F="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
-for x in "$F/XPCServices/Installer.xpc" "$F/XPCServices/Downloader.xpc" "$F/Autoupdate" "$F/Updater.app" "$APP/Contents/Frameworks/Sparkle.framework"; do
-  codesign --force --sign "${ID:--}" "$x"
-done
-codesign --force --sign "${ID:--}" --identifier one.sam.app "$APP"
+# The same identity as the shipped app (app/sign.sh), so updates keep macOS grants.
+source ../sign.sh
+sign_sparkle "$APP"
+sign "$APP" "$ENT/Sam.entitlements" one.sam.app
 echo "built $APP"
