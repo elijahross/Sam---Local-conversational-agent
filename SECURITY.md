@@ -4,7 +4,7 @@ Sam hears you, remembers you, reads what you share from your screen and can act 
 
 ## Reporting a vulnerability
 
-Please **don't open a public issue**. Report it privately through [GitHub's security advisories](https://github.com/elijahross/Sam---Local-conversational-agent/security/advisories/new) with:
+Please **don't open a public issue**. Report it privately through [GitHub's security advisories](https://github.com/elijahross/Sam---Local-conversational-agent/security/advisories/new) or by email to **service@ml-canvas.com**, with:
 - what an attacker can do, and what they need (a web page you visit, a message you receive, local access, …);
 - steps to reproduce, ideally against the dev stack (`./run.sh`);
 - the Sam version or commit.

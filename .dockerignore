@@ -1,0 +1,11 @@
+# Local-only folders (not in a fresh clone): keep them out of the OSS Scanner image build context.
+server/target
+data
+dist
+lab
+models
+.venv*
+app/Sam/build
+app/vendor
+sidecar/*/build
+.env
