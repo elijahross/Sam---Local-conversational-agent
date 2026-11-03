@@ -18,7 +18,7 @@ jobs:
     name: Manifest, Python, scripts, hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
@@ -47,7 +47,7 @@ jobs:
     name: Rust server (build + tests)
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -63,7 +63,7 @@ jobs:
     name: macOS app and helpers (build)
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Helpers
         run: |
           ./sidecar/applestt/build.sh
